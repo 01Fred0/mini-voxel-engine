@@ -1,0 +1,27 @@
+{
+  "name": "mini-voxel-engine",
+  "version": "0.1.0",
+  "description": "A simplified Minecraft-like voxel engine with procedural terrain generation",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "^0.158.0"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  },
+  "keywords": [
+    "voxel",
+    "minecraft",
+    "procedural-generation",
+    "perlin-noise",
+    "terrain-generation",
+    "three.js"
+  ],
+  "author": "01Fred0",
+  "license": "MIT"
+}
