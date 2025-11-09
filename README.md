@@ -1,2 +1,127 @@
 # mini-voxel-engine
 A simplified Minecraft-like voxel engine built from scratch with procedural terrain generation using Perlin/Simplex noise and 3D cave systems
+
+
+## 🎮 Features
+
+- **Procedural Terrain Generation** using Perlin/Simplex noise
+- **3D Cave Systems** generated with volumetric noise
+- **Chunk-based World** for efficient rendering and infinite terrain
+- **Real-time 3D Rendering** with Three.js
+- **Modular Architecture** - easy to extend and customize
+- **FPS-style Camera Controls**
+
+## 🏗️ Project Structure
+
+```
+mini-voxel-engine/
+├── public/
+│   └── index.html          # Entry HTML file
+├── src/
+│   ├── core/
+│   │   ├── Chunk.js        # Chunk data structure
+│   │   ├── ChunkManager.js # Manages chunk loading
+│   │   ├── WorldGenerator.js # Terrain generation
+│   │   └── Block.js        # Block type definitions
+│   ├── noise/
+│   │   ├── PerlinNoise.js  # Perlin noise implementation
+│   │   └── SimplexNoise.js # Simplex noise (optional)
+│   ├── rendering/
+│   │   ├── Renderer.js     # Three.js renderer setup
+│   │   └── MeshBuilder.js  # Converts chunks to meshes
+│   ├── config.js           # World generation settings
+│   └── main.js             # Application entry point
+├── package.json
+└── README.md
+```
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js (v16 or higher)
+- npm or yarn
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/01Fred0/mini-voxel-engine.git
+cd mini-voxel-engine
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+```
+
+Open your browser to `http://localhost:5173` (or the port shown in terminal)
+
+### Building for Production
+
+```bash
+npm run build
+npm run preview
+```
+
+## 🎯 Roadmap
+
+- [x] Initial project setup
+- [x] Package configuration
+- [x] HTML entry point
+- [ ] Noise generation algorithms
+- [ ] Chunk system implementation
+- [ ] World generator with terrain
+- [ ] Three.js renderer
+- [ ] Camera controls
+- [ ] Cave generation
+- [ ] Block textures
+- [ ] Lighting system
+- [ ] Biomes
+- [ ] Water
+- [ ] Trees and vegetation
+
+## 🧠 How It Works
+
+### Noise Generation
+The engine uses **Perlin noise** for smooth, natural-looking terrain. Multiple octaves of noise are combined (fractal Brownian motion) to create varied landscapes with both large features and fine details.
+
+### Chunk System
+The world is divided into **chunks** (e.g., 16×16×64 blocks). Only chunks near the player are generated and rendered, enabling infinite worlds.
+
+### Cave Generation
+**3D noise** is used to carve out cave systems. If the noise value at a position is above a threshold, that block becomes air, creating natural cave networks.
+
+## 🛠️ Configuration
+
+Edit `src/config.js` to customize:
+- World seed
+- Chunk size
+- Terrain height/amplitude
+- Noise frequency and octaves
+- Cave density
+- Render distance
+
+## 📚 Learning Resources
+
+- [Perlin Noise Explanation](https://adrianb.io/2014/08/09/perlinnoise.html)
+- [Minecraft World Generation](https://www.alanzucconi.com/2022/06/05/minecraft-world-generation/)
+- [Three.js Documentation](https://threejs.org/docs/)
+
+## 🤝 Contributing
+
+Contributions are welcome! Feel free to:
+- Add new features
+- Improve generation algorithms
+- Optimize performance
+- Fix bugs
+- Improve documentation
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) file
+
+## 🙏 Acknowledgments
+
+Inspired by Minecraft's incredible procedural generation systems and the countless developers who've shared their knowledge about voxel engines.
