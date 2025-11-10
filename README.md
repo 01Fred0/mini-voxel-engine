@@ -26,6 +26,71 @@ A simplified Minecraft-like voxel engine built from scratch with procedural terr
 
 #### 🪟 Windows Installation Guide
 
+#### 💻 Quick Install via Command Line (Advanced)
+
+If you prefer using the command line, you can install everything using **Chocolatey** (Windows package manager):
+
+**Step 1: Install Chocolatey**
+
+1. Open PowerShell as Administrator:
+   - Press `Win + X`
+   - Select "Windows PowerShell (Admin)" or "Terminal (Admin)"
+
+2. Run this command:
+   ```powershell
+   Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+   ```
+
+3. Wait for installation to complete
+
+**Step 2: Install Node.js and Git via Chocolatey**
+
+In the same PowerShell window (as Administrator):
+```powershell
+choco install nodejs git -y
+```
+
+This will automatically:
+- Download and install Node.js (LTS version)
+- Download and install Git
+- Add both to your system PATH
+
+**Step 3: Verify Installation**
+
+Close and reopen Command Prompt (regular, not admin), then verify:
+```cmd
+node --version
+npm --version
+git --version
+```
+
+**Step 4: Clone and Run**
+
+```cmd
+cd Documents
+git clone https://github.com/01Fred0/mini-voxel-engine.git
+cd mini-voxel-engine
+npm install
+npm run dev
+```
+
+Then open your browser to `http://localhost:5173`
+
+---
+
+**Alternative: Using winget (Windows 11)**
+
+If you have Windows 11, you can use the built-in package manager:
+
+```powershell
+winget install OpenJS.NodeJS.LTS
+winget install Git.Git
+```
+
+Then follow Steps 3-4 above.
+
+---
+
 **Step 1: Install Node.js**
 
 1. Visit [nodejs.org](https://nodejs.org/)
