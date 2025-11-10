@@ -1,10 +1,12 @@
 import { WorldConfig, BlockTypes, BlockProperties } from '../config.js';
+import { VoxelParticleSystem } from './VoxelParticleSystem.js';
 
 /**
  * Physics Engine - Handles voxel physics (Rust-like mechanics)
  * - Gravity simulation
  * - Structural integrity checks
  * - Block falling and collapse
+ * - Micro-voxel particle destruction effects
  */
 export class Physics {
   constructor(chunkManager) {
@@ -13,9 +15,20 @@ export class Physics {
     this.structuralIntegrity = WorldConfig.physics.structuralIntegrity;
     this.supportDistance = WorldConfig.physics.supportDistance;
     
+    // Initialize particle system for micro-voxel destruction
+    this.particleSystem = null; // Will be set by main engine with scene
+    
     // Blocks awaiting physics updates
     this.pendingUpdates = new Set();
     this.fallingBlocks = new Map();  // Track blocks that are falling
+  }
+
+  /**
+   * Set the particle system for micro-voxel destruction effects
+   * @param {VoxelParticleSystem} particleSystem - The particle system instance
+   */
+  setParticleSystem(particleSystem) {
+    this.particleSystem = particleSystem;
   }
 
   // Update physics for all pending blocks
@@ -24,6 +37,11 @@ export class Physics {
     
     // Process falling blocks
     this.updateFallingBlocks(deltaTime);
+    
+    // Update particle system
+    if (this.particleSystem) {
+      this.particleSystem.update(deltaTime);
+    }
     
     // Check structural integrity for pending updates
     const updates = Array.from(this.pendingUpdates);
@@ -225,6 +243,21 @@ export class Physics {
 
   // Handle block destruction
   onBlockDestroyed(x, y, z) {
+    // Get block type before it's destroyed for particle effect
+    const chunk = this.chunkManager.getChunkAt(x, z);
+    let blockType = null;
+    if (chunk) {
+      const localPos = this.chunkManager.worldToLocal(x, y, z);
+      blockType = chunk.getBlock(localPos.x, localPos.y, localPos.z);
+    }
+    
+    // Create particle effect if particle system is available
+    if (this.particleSystem && blockType && blockType !== BlockTypes.AIR) {
+      // Calculate impact direction (default to upward)
+      const impact = { x: 0, y: 1, z: 0 };
+      this.particleSystem.breakBlock(x, y, z, blockType, impact);
+    }
+    
     this.queueNeighborUpdates(x, y, z);
   }
 
