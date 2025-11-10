@@ -2,8 +2,8 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
     base: '/mini-voxel-engine/',
-  root: './public',
-  build: {
+  // root: './public', // Commented out - use project root instead  build: {
+  publicDir: 'public',
     outDir: '../dist',
     emptyOutDir: true,
   },
