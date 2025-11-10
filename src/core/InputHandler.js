@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BlockType } from '../config.js';
+import { BlockTypes } from '../config.js';
 
 export class InputHandler {
   constructor(camera, chunkManager, renderer) {
