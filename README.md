@@ -199,6 +199,51 @@ npm run build
 
 The built files will be in the `dist/` directory.
 
+## 🖥️ Building Standalone Executable
+
+You can package the voxel engine as a standalone Windows .exe application that doesn't require a browser.
+
+### Prerequisites
+
+Make sure you have installed Electron dependencies:
+
+```bash
+npm install
+```
+
+### Building the Executable
+
+**For Windows:**
+
+```bash
+npm run electron:build:win
+```
+
+This will:
+1. Build the Vite application for production
+2. Package it with Electron
+3. Create a Windows installer (.exe) in the `release` folder
+
+### Running the Standalone App
+
+**Development Mode** (test the Electron app without building):
+
+```bash
+npm run electron
+```
+
+**After Building:**
+- Navigate to the `release` folder
+- Run the generated `.exe` installer
+- The app will install and launch as a standalone desktop application
+
+### Notes
+
+- The standalone app runs independently without needing a web browser
+- All game features work the same as the web version
+- The app window is 1280x720 by default
+- You can customize Electron settings in `electron/main.cjs`
+
 ## 🎮 Controls
 
 **Movement:**
