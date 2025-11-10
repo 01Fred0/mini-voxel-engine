@@ -1,5 +1,5 @@
-import { WorldConfig, BlockTypes, BlockProperties } from '../config.js';
-import { VoxelParticleSystem } from './VoxelParticleSystem.js';
+import { WorldConfig, BlockTypes } from '../config.js'
+  ;import { VoxelParticleSystem } from './VoxelParticleSystem.js';
 
 /**
  * Physics Engine - Handles voxel physics (Rust-like mechanics)
