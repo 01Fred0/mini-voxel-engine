@@ -1,25 +1,21 @@
 import * as THREE from 'three';
-import { BlockTypes, BlockProperties } from '../config.js';
+import { BlockTypes, Block } from '../config.js';
 
 /**
  * MeshBuilder - Converts voxel chunks to Three.js meshes
  * Uses greedy meshing for optimization
+ * Integrates with Block system for dynamic colors and properties
  */
 export class MeshBuilder {
   constructor() {
-    // Block colors (simple for now)
-    this.blockColors = {
-      [BlockTypes.STONE]: 0x808080,
-      [BlockTypes.DIRT]: 0x8B4513,
-      [BlockTypes.GRASS]: 0x00AA00,
-      [BlockTypes.WOOD]: 0x8B6914,
-      [BlockTypes.LEAVES]: 0x228B22,
-      [BlockTypes.SAND]: 0xF4A460,
-      [BlockTypes.WATER]: 0x4169E1,
-    };
+    // No longer need hardcoded colors - will use Block.color properties
   }
 
-  // Build mesh for a chunk
+  /**
+   * Build mesh for a chunk
+   * @param {Chunk} chunk - The chunk to build a mesh for
+   * @returns {THREE.Mesh|null} The generated mesh or null if empty
+   */
   buildChunkMesh(chunk) {
     const geometry = new THREE.BufferGeometry();
     const vertices = [];
@@ -37,17 +33,17 @@ export class MeshBuilder {
           
           if (blockType === BlockTypes.AIR) continue;
           
-          const props = BlockProperties[blockType];
-          if (!props || !props.solid) continue;
+          const block = Block.getBlock(blockType);
+          if (!block || !block.solid) continue;
           
           // Check each face
           const faces = [
-            { dir: [0, 1, 0], check: [x, y + 1, z] },  // Top
-            { dir: [0, -1, 0], check: [x, y - 1, z] }, // Bottom
-            { dir: [1, 0, 0], check: [x + 1, y, z] },  // Right
-            { dir: [-1, 0, 0], check: [x - 1, y, z] }, // Left
-            { dir: [0, 0, 1], check: [x, y, z + 1] },  // Front
-            { dir: [0, 0, -1], check: [x, y, z - 1] }, // Back
+            { dir: [0, 1, 0], check: [x, y + 1, z], face: 'top' }, // Top
+            { dir: [0, -1, 0], check: [x, y - 1, z], face: 'bottom' }, // Bottom
+            { dir: [1, 0, 0], check: [x + 1, y, z], face: 'side' }, // Right
+            { dir: [-1, 0, 0], check: [x - 1, y, z], face: 'side' }, // Left
+            { dir: [0, 0, 1], check: [x, y, z + 1], face: 'side' }, // Front
+            { dir: [0, 0, -1], check: [x, y, z - 1], face: 'side' }, // Back
           ];
           
           for (const face of faces) {
@@ -58,7 +54,8 @@ export class MeshBuilder {
               const faceIndices = this.addFace(
                 x, y, z,
                 face.dir,
-                blockType,
+                block,
+                face.face,
                 vertices, normals, colors, vertexIndex
               );
               
@@ -100,10 +97,34 @@ export class MeshBuilder {
     return mesh;
   }
 
-  // Add a face to the mesh
-  addFace(x, y, z, normal, blockType, vertices, normals, colors, startIndex) {
+  /**
+   * Add a face to the mesh with proper color based on face type
+   * @param {number} x - Block X position
+   * @param {number} y - Block Y position
+   * @param {number} z - Block Z position
+   * @param {Array} normal - Face normal direction
+   * @param {Block} block - Block instance with color properties
+   * @param {string} faceType - Face type ('top', 'bottom', 'side')
+   * @param {Array} vertices - Vertices array
+   * @param {Array} normals - Normals array
+   * @param {Array} colors - Colors array
+   * @param {number} startIndex - Starting vertex index
+   * @returns {Array} Face indices
+   */
+  addFace(x, y, z, normal, block, faceType, vertices, normals, colors, startIndex) {
     const [nx, ny, nz] = normal;
-    const color = new THREE.Color(this.blockColors[blockType] || 0xFFFFFF);
+    
+    // Get color based on face type from Block.color property
+    let colorHex;
+    if (faceType === 'top') {
+      colorHex = block.color.top;
+    } else if (faceType === 'bottom') {
+      colorHex = block.color.bottom;
+    } else {
+      colorHex = block.color.side;
+    }
+    
+    const color = new THREE.Color(colorHex);
     
     // Define vertices based on normal direction
     let v1, v2, v3, v4;
