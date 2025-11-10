@@ -1,22 +1,37 @@
-import { WorldConfig, BlockTypes } from '../config.js';
-import { PerlinNoise } from '../noise/PerlinNoise.js';
+import { WorldConfig, BlockTypes, Block } from '../config.js';
+import { SimplexNoise } from '../noise/SimplexNoise.js';
+import { BiomeGenerator } from './Biome.js';
+import { OreGenerator } from './OreGenerator.js';
 import { Chunk } from './Chunk.js';
 
 /**
- * WorldGenerator - Generates terrain using Perlin noise
- * Creates height maps, caves, and places different block types
+ * WorldGenerator - Generates terrain using advanced noise algorithms
+ * Creates height maps, caves, biomes, ores, and places different block types
+ * Integrates SimplexNoise, BiomeGenerator, and OreGenerator systems
  */
 export class WorldGenerator {
   constructor(seed = null) {
     this.seed = seed || WorldConfig.seed;
-    this.noise = new PerlinNoise(this.seed);
-    this.caveNoise = new PerlinNoise(this.seed + 1000);  // Different seed for caves
     
+    // Initialize noise generators
+    this.noise = new SimplexNoise(this.seed);
+    this.caveNoise = new SimplexNoise(this.seed + 1000); // Different seed for caves
+    
+    // Initialize biome and ore generators
+    this.biomeGenerator = new BiomeGenerator(this.seed);
+    this.oreGenerator = new OreGenerator(this.seed);
+    
+    // Config references
     this.terrainConfig = WorldConfig.terrain;
     this.caveConfig = WorldConfig.caves;
   }
 
-  // Generate a chunk at given coordinates
+  /**
+   * Generate a chunk at given coordinates
+   * @param {number} chunkX - Chunk X coordinate
+   * @param {number} chunkZ - Chunk Z coordinate
+   * @returns {Chunk} Generated chunk with terrain, biomes, and ores
+   */
   generateChunk(chunkX, chunkZ) {
     const chunk = new Chunk(chunkX, chunkZ);
     
@@ -27,43 +42,66 @@ export class WorldGenerator {
         const worldX = chunkX * chunk.size + x;
         const worldZ = chunkZ * chunk.size + z;
         
+        // Get biome for this column
+        const biome = this.biomeGenerator.getBiome(worldX, worldZ);
+        
         // Generate height at this position
-        const height = this.getTerrainHeight(worldX, worldZ);
+        const height = this.getTerrainHeight(worldX, worldZ, biome);
         
         // Fill column
         for (let y = 0; y < chunk.height; y++) {
-          let blockType = this.getBlockType(worldX, y, worldZ, height);
+          let blockType = this.getBlockType(worldX, y, worldZ, height, biome);
           chunk.setBlock(x, y, z, blockType);
         }
       }
     }
     
-    chunk.needsPhysicsUpdate = false;  // Initial generation doesn't need physics
+    // Generate ores after base terrain
+    this.oreGenerator.generateOres(chunk);
+    
+    chunk.needsPhysicsUpdate = false; // Initial generation doesn't need physics
     chunk.dirtyBlocks.clear();
     
     return chunk;
   }
 
-  // Get terrain height at world coordinates
-  getTerrainHeight(worldX, worldZ) {
-    const { scale, octaves, persistence, lacunarity, heightMultiplier, baseHeight } = this.terrainConfig;
+  /**
+   * Get terrain height at world coordinates with biome influence
+   * @param {number} worldX - World X coordinate
+   * @param {number} worldZ - World Z coordinate
+   * @param {object} biome - Biome data
+   * @returns {number} Height value
+   */
+  getTerrainHeight(worldX, worldZ, biome) {
+    const { scale, octaves, persistence, lacunarity } = this.terrainConfig;
     
-    // Generate height using fractal brownian motion
-    const noiseValue = this.noise.fbm2D(
-      worldX * scale,
-      worldZ * scale,
+    // Use SimplexNoise FBM for terrain generation
+    const noiseValue = this.noise.fbm(
+      worldX * scale * biome.terrainScale,
+      0,
+      worldZ * scale * biome.terrainScale,
       octaves,
       persistence,
       lacunarity
     );
     
-    // Convert from [-1, 1] to height
-    const height = Math.floor(baseHeight + noiseValue * heightMultiplier);
+    // Apply biome-specific height modifiers
+    const biomeHeight = this.terrainConfig.baseHeight + biome.heightOffset;
+    const height = Math.floor(biomeHeight + noiseValue * biome.heightVariation);
+    
     return Math.max(0, Math.min(height, WorldConfig.chunkHeight - 1));
   }
 
-  // Determine block type at position
-  getBlockType(worldX, worldY, worldZ, surfaceHeight) {
+  /**
+   * Determine block type at position based on biome and depth
+   * @param {number} worldX - World X coordinate  
+   * @param {number} worldY - World Y coordinate
+   * @param {number} worldZ - World Z coordinate
+   * @param {number} surfaceHeight - Surface height at this column
+   * @param {object} biome - Biome data
+   * @returns {number} Block type ID
+   */
+  getBlockType(worldX, worldY, worldZ, surfaceHeight, biome) {
     // Air above surface
     if (worldY > surfaceHeight) {
       return BlockTypes.AIR;
@@ -80,25 +118,33 @@ export class WorldGenerator {
       return BlockTypes.WATER;
     }
     
-    // Surface layer
+    // Surface layer - use biome surface block
     if (worldY === surfaceHeight) {
       if (surfaceHeight < waterLevel - 2) {
-        return BlockTypes.SAND;  // Beach/underwater
+        return BlockTypes.SAND; // Beach/underwater
       }
-      return BlockTypes.GRASS;
+      return biome.surfaceBlock || BlockTypes.GRASS;
     }
     
     // Subsurface layers
     const depthFromSurface = surfaceHeight - worldY;
     
+    // Subsurface layer - use biome subsurface block
     if (depthFromSurface <= 3) {
-      return BlockTypes.DIRT;
+      return biome.subsurfaceBlock || BlockTypes.DIRT;
     }
     
+    // Deep layer - stone
     return BlockTypes.STONE;
   }
 
-  // Check if position should be a cave
+  /**
+   * Check if position should be a cave using 3D noise
+   * @param {number} worldX - World X coordinate
+   * @param {number} worldY - World Y coordinate  
+   * @param {number} worldZ - World Z coordinate
+   * @returns {boolean} True if cave
+   */
   isCave(worldX, worldY, worldZ) {
     const { scale, threshold, minHeight, maxHeight } = this.caveConfig;
     
@@ -107,12 +153,12 @@ export class WorldGenerator {
       return false;
     }
     
-    // Use 3D noise for cave generation
-    const caveValue = this.caveNoise.fbm3D(
+    // Use 3D SimplexNoise for cave generation
+    const caveValue = this.caveNoise.fbm(
       worldX * scale,
       worldY * scale,
       worldZ * scale,
-      3,  // octaves
+      3, // octaves
       0.5,
       2.0
     );
@@ -121,20 +167,10 @@ export class WorldGenerator {
     return caveValue > threshold;
   }
 
-  // Get biome at position (for future expansion)
-  getBiome(worldX, worldZ) {
-    const biomeNoise = this.noise.noise2D(worldX * 0.001, worldZ * 0.001);
-    
-    if (biomeNoise < -0.3) {
-      return 'desert';
-    } else if (biomeNoise < 0.3) {
-      return 'plains';
-    } else {
-      return 'mountains';
-    }
-  }
-
-  // Get spawn position (flat area near origin)
+  /**
+   * Get spawn position (flat area near origin)
+   * @returns {object} Spawn position {x, y, z}
+   */
   getSpawnPosition() {
     // Find a suitable spawn point near origin
     for (let radius = 0; radius < 50; radius += 5) {
@@ -142,7 +178,8 @@ export class WorldGenerator {
         const x = Math.floor(Math.cos(angle) * radius);
         const z = Math.floor(Math.sin(angle) * radius);
         
-        const height = this.getTerrainHeight(x, z);
+        const biome = this.biomeGenerator.getBiome(x, z);
+        const height = this.getTerrainHeight(x, z, biome);
         
         // Check if position is suitable (above water, not in cave)
         if (height > this.terrainConfig.baseHeight + 5) {
