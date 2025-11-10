@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BlockTypes, Blocks } from '../config.js';
+import { BlockTypes, getBlockById } from '../config.js';
 
 /**
  * MeshBuilder - Converts voxel chunks to Three.js meshes
@@ -33,7 +33,7 @@ export class MeshBuilder {
           
           if (blockType === BlockTypes.AIR) continue;
           
-          const block = Block.getBlock(blockType);
+          const block = getBlockById(blockType);
           if (!block || !block.solid) continue;
           
           // Check each face
