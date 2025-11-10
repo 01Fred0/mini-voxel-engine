@@ -3,6 +3,7 @@ import { ChunkManager } from './core/ChunkManager.js';
 import { Physics } from './core/Physics.js';
 import { Renderer } from './rendering/Renderer.js';
 import { CameraController } from './rendering/CameraController.js';
+import { InputHandler } from './core/InputHandler.js';
 
 class VoxelEngine {
   constructor() {
@@ -26,10 +27,20 @@ class VoxelEngine {
     
     // Initialize physics
     this.physics = new Physics();
+
+        // Initialize input handler
+    this.inputHandler = new InputHandler(
+      this.renderer.camera,
+      this.chunkManager,
+      this.renderer
+    );
     
     // Track loaded chunks
     this.loadedChunks = new Map();
-    
+
+
+        // Prevent right-click context menu
+    this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     // Performance tracking
     this.lastTime = performance.now();
     this.frameCount = 0;
@@ -210,6 +221,7 @@ class VoxelEngine {
   dispose() {
     this.isRunning = false;
     this.cameraController.dispose();
+        this.inputHandler.dispose();
     this.renderer.dispose();
     this.chunkManager.dispose();
     if (this.fpsElement) {
