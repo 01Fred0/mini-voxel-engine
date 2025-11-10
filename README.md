@@ -11,6 +11,84 @@ A simplified Minecraft-like voxel engine built from scratch with procedural terr
 - **Modular Architecture** - easy to extend and customize
 - **FPS-style Camera Controls**
 
+- - **Physics-Based Block Mechanics** - blocks respond to gravity and structural integrity
+- **Block Breaking & Placing** - interact with the world using raycasting
+- **Multiple Block Types** - 7 different block types (Air, Grass, Dirt, Stone, Sand, Wood, Leaves)
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js (v14 or higher)
+- npm or yarn
+
+### Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/01Fred0/mini-voxel-engine.git
+cd mini-voxel-engine
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Start the development server:
+```bash
+npm run dev
+```
+
+4. Open your browser and navigate to `http://localhost:5173`
+
+### Building for Production
+
+```bash
+npm run build
+```
+
+The built files will be in the `dist/` directory.
+
+## 🎮 Controls
+
+**Movement:**
+- `W` / `↑` - Move forward
+- `S` / `↓` - Move backward  
+- `A` / `←` - Move left
+- `D` / `→` - Move right
+- `Space` - Move up (fly upward)
+- `Shift` - Move down / Sprint (hold while moving)
+- `Mouse` - Look around
+
+**Interaction:**
+- `Left Click` - Break block
+- `Right Click` - Place block
+- `1-7` - Select block type to place
+- `ESC` - Release mouse control
+
+**Getting Started:**
+1. Click anywhere on the screen to lock the mouse pointer
+2. Use WASD to fly around and explore the world
+3. Break blocks by left-clicking
+4. Place blocks by right-clicking
+5. Watch physics in action as unsupported blocks fall!
+
+## ✨ Gameplay Features
+
+- **Infinite Procedural World** - Chunks load and unload dynamically as you explore
+- **Realistic Physics** - Blocks fall when unsupported, structures collapse realistically
+- **Cave Exploration** - Discover vast 3D cave networks underground
+- **Creative Building** - Place and remove blocks freely
+- **7 Block Types:**
+  - 🟩 Grass (Type 1)
+  - 🟫 Dirt (Type 2)
+  - ⬜ Stone (Type 3)
+  - 🟨 Sand (Type 4)
+  - 🟫 Wood (Type 5)
+  - 🟢 Leaves (Type 6)
+  - ⬛ Bedrock (Type 7)
+
 ## 🏗️ Project Structure
 
 ```
