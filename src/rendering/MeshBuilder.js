@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BlockTypes, Block } from '../config.js';
+import { BlockTypes, Blocks } from '../config.js';
 
 /**
  * MeshBuilder - Converts voxel chunks to Three.js meshes
