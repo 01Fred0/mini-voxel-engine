@@ -1,4 +1,4 @@
-import { WorldConfig, BlockTypes, Block } from '../config.js';
+import { WorldConfig, BlockTypes, Blocks } from '../config.js';
 import { SimplexNoise } from '../noise/SimplexNoise.js';
 import { BiomeGenerator } from './Biome.js';
 import { OreGenerator } from './OreGenerator.js';
