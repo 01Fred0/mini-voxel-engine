@@ -3,6 +3,7 @@ import { SimplexNoise } from '../noise/SimplexNoise.js';
 import { BiomeGenerator } from './Biome.js';
 import { OreGenerator } from './OreGenerator.js';
 import { Chunk } from './Chunk.js';
+import { TerrainPolisher } from './TerrainPolisher.js';
 
 /**
  * WorldGenerator - Generates terrain using advanced noise algorithms
@@ -20,6 +21,7 @@ export class WorldGenerator {
     // Initialize biome and ore generators
     this.biomeGenerator = new BiomeGenerator(this.seed);
     this.oreGenerator = new OreGenerator(this.seed);
+        this.terrainPolisher = new TerrainPolisher(this.seed);
     
     // Config references
     this.terrainConfig = WorldConfig.terrain;
@@ -58,6 +60,9 @@ export class WorldGenerator {
     
     // Generate ores after base terrain
     this.oreGenerator.generateOres(chunk);
+
+        // Apply terrain polishing for enhanced terrain quality
+    this.terrainPolisher.polishChunk(chunk, this);
     
     chunk.needsPhysicsUpdate = false; // Initial generation doesn't need physics
     chunk.dirtyBlocks.clear();
