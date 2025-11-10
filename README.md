@@ -24,6 +24,90 @@ A simplified Minecraft-like voxel engine built from scratch with procedural terr
 
 ### Installation
 
+#### 🪟 Windows Installation Guide
+
+**Step 1: Install Node.js**
+
+1. Visit [nodejs.org](https://nodejs.org/)
+2. Download the "LTS" (Long Term Support) version for Windows
+3. Run the installer (`.msi` file)
+4. Follow the installation wizard:
+   - Accept the license agreement
+   - Keep the default installation location
+   - **Important**: Make sure "Add to PATH" is checked
+5. Click "Install" and wait for completion
+6. Verify installation by opening Command Prompt and typing:
+   ```
+   node --version
+   npm --version
+   ```
+   You should see version numbers for both.
+
+**Step 2: Install Git (if not already installed)**
+
+1. Visit [git-scm.com](https://git-scm.com/)
+2. Download Git for Windows
+3. Run the installer
+4. Use default settings (recommended)
+5. Verify by typing in Command Prompt:
+   ```
+   git --version
+   ```
+
+   **Step 3: Download the Project**
+
+1. Open Command Prompt (Press `Win + R`, type `cmd`, press Enter)
+2. Navigate to where you want to install (e.g., Documents):
+   ```
+   cd Documents
+   ```
+3. Clone the repository:
+   ```
+   git clone https://github.com/01Fred0/mini-voxel-engine.git
+   ```
+4. Enter the project folder:
+   ```
+   cd mini-voxel-engine
+   ```
+
+**Step 4: Install Project Dependencies**
+
+In the same Command Prompt window:
+```
+npm install
+```
+This will download all required packages (may take 1-2 minutes).
+
+**Step 5: Run the Game**
+
+Start the development server:
+```
+npm run dev
+```
+
+You should see output like:
+```
+VITE v5.x.x ready in xxx ms
+
+➜  Local:   http://localhost:5173/
+➜  Network: use --host to expose
+```
+
+**Step 6: Open in Browser**
+
+1. Open your web browser (Chrome, Firefox, or Edge recommended)
+2. Go to: `http://localhost:5173`
+3. The game should load automatically!
+
+**Troubleshooting Windows Issues:**
+
+- **"node is not recognized"**: Restart Command Prompt after installing Node.js
+- **Port 5173 already in use**: Close other Vite servers or use `npm run dev -- --port 3000`
+- **Permission errors**: Run Command Prompt as Administrator
+- **Firewall blocking**: Allow Node.js through Windows Firewall when prompted
+
+---
+
 1. Clone the repository:
 ```bash
 git clone https://github.com/01Fred0/mini-voxel-engine.git
@@ -171,6 +255,30 @@ The world is divided into **chunks** (e.g., 16×16×64 blocks). Only chunks near
 ### Cave Generation
 **3D noise** is used to carve out cave systems. If the noise value at a position is above a threshold, that block becomes air, creating natural cave networks.
 
+
+### ✨ Advanced Terrain Polishing
+
+The terrain generation has been enhanced with an advanced **TerrainPolisher** system that adds realistic details:
+
+#### 💪 Smoothing & Transitions
+- **Sharp Edge Detection**: Automatically identifies and smooths harsh terrain transitions
+- **Block Averaging**: Uses neighborhood analysis to create natural-looking slopes
+- **Biome Blending**: Smooth transitions between different biome types
+
+#### 🌊 Erosion Simulation
+- **Weathering Effects**: Simulates natural erosion patterns on terrain surfaces
+- **Sediment Deposition**: Adds realistic sediment buildup in valleys
+- **Variable Erosion**: Different erosion strengths based on noise patterns
+
+#### 🪨 Natural Features
+- **Boulder Placement**: Scattered stone formations on terrain surfaces
+- **Rock Piles**: Small decorative rock clusters
+- **Surface Variation**: Stone patches on grass for visual diversity
+
+#### 🧹 Cleanup Systems
+- **Floating Block Removal**: Eliminates unrealistic floating terrain
+- **Support Detection**: Checks for proper block support structures
+- **Multi-pass Cleanup**: Thorough terrain validation
 ## 🛠️ Configuration
 
 Edit `src/config.js` to customize:
