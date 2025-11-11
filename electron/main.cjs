@@ -14,8 +14,12 @@ function createWindow() {
     title: 'Mini Voxel Engine'
   });
 
-  // Load the built Vite app
-  mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+  // Load the Vite dev server URL in development
+  if (process.env.NODE_ENV === 'development') {
+    mainWindow.loadURL('http://localhost:5173');
+  } else {
+    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+  }
 
   // Open DevTools in development
   // mainWindow.webContents.openDevTools();

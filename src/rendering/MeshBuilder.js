@@ -94,7 +94,7 @@ export class MeshBuilder {
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         
-        return mesh;
+        return geometry;
     }
 
     /**
