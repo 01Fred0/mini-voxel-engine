@@ -2,10 +2,11 @@ import * as THREE from 'three';
 import { BlockTypes } from '../config.js';
 
 export class InputHandler {
-  constructor(camera, chunkManager, renderer) {
+  constructor(camera, chunkManager, renderer, physics) {
     this.camera = camera;
     this.chunkManager = chunkManager;
     this.renderer = renderer;
+    this.physics = physics;
     
     this.raycaster = new THREE.Raycaster();
     this.raycaster.far = 10; // Max reach distance
@@ -54,13 +55,13 @@ export class InputHandler {
     // Check intersection with loaded chunks
     const intersections = [];
     
-    // We need to check all chunk meshes
-    this.renderer.chunkMeshes.forEach((mesh) => {
+    // Check intersection with loaded chunks
+    for (const mesh of this.renderer.chunkMeshes.values()) {
       const hits = this.raycaster.intersectObject(mesh);
       if (hits.length > 0) {
         intersections.push(...hits);
       }
-    });
+    }
     
     if (intersections.length === 0) return null;
     
@@ -119,11 +120,13 @@ export class InputHandler {
     const currentBlock = chunk.getBlock(localX, y, localZ);
     if (currentBlock === BlockTypes.AIR) return;
     
+    // Trigger physics / particle callbacks first (while the block is still there)
+    if (this.physics) {
+      this.physics.onBlockDestroyed(x, y, z);
+    }
+
     // Break block
     chunk.setBlock(localX, y, localZ, BlockTypes.AIR);
-    
-    // Update chunk mesh
-    this.renderer.updateChunkMesh(chunk);
     
     console.log(`Broke block at (${x}, ${y}, ${z})`);
   }
@@ -168,8 +171,10 @@ export class InputHandler {
     // Place block
     chunk.setBlock(localX, y, localZ, this.selectedBlockType);
     
-    // Update chunk mesh
-    this.renderer.updateChunkMesh(chunk);
+    // Trigger physics callback
+    if (this.physics) {
+      this.physics.onBlockPlaced(x, y, z);
+    }
     
     console.log(`Placed block type ${this.selectedBlockType} at (${x}, ${y}, ${z})`);
   }

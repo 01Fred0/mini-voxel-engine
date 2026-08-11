@@ -105,7 +105,6 @@ export class CameraController {
         break;
       case 'ShiftLeft':
       case 'ShiftRight':
-        this.moveDown = true;
         this.isSprinting = true;
         break;
       case 'ControlLeft':
@@ -138,7 +137,6 @@ export class CameraController {
         break;
       case 'ShiftLeft':
       case 'ShiftRight':
-        this.moveDown = false;
         this.isSprinting = false;
         break;
       case 'ControlLeft':

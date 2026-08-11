@@ -4,6 +4,7 @@ import { Physics } from './core/Physics.js';
 import { Renderer } from './rendering/Renderer.js';
 import { CameraController } from './rendering/CameraController.js';
 import { InputHandler } from './core/InputHandler.js';
+import { VoxelParticleSystem } from './core/VoxelParticleSystem.js';
 
 class VoxelEngine {
   constructor() {
@@ -28,11 +29,16 @@ class VoxelEngine {
     // Initialize physics
     this.physics = new Physics(this.chunkManager);
 
+    // Initialize particle system
+    this.particleSystem = new VoxelParticleSystem(this.renderer.scene);
+    this.physics.setParticleSystem(this.particleSystem);
+
     // Initialize input handler
     this.inputHandler = new InputHandler(
       this.renderer.camera,
       this.chunkManager,
-      this.renderer
+      this.renderer,
+      this.physics
     );
     
     // Prevent right-click context menu
@@ -94,7 +100,8 @@ class VoxelEngine {
       <p>WASD - Move</p>
       <p>Mouse - Look around</p>
       <p>Space - Move up</p>
-      <p>Shift - Sprint / Move down</p>
+      <p>Control - Move down</p>
+      <p>Shift - Sprint</p>
       <p>ESC - Release mouse</p>
     `;
     document.body.appendChild(instructions);
@@ -113,9 +120,10 @@ class VoxelEngine {
     const cameraPos = this.cameraController.getPosition();
     const result = this.chunkManager.updateChunks(cameraPos.x, cameraPos.z);
     
-    // Load meshes for newly loaded chunks
+    // Load meshes for newly loaded chunks immediately
     for (const chunk of result.loaded) {
       this.renderer.updateChunkMesh(chunk);
+      chunk.needsRebuild = false; // Prevent double-rebuilding in updatePhysics
     }
     
     // Unload meshes for distant chunks
