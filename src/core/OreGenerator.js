@@ -96,7 +96,7 @@ export class OreGenerator {
       
       // Place ore if the block is stone
       if (chunk.getBlock(x, y, z) === Blocks.STONE.id) {
-        chunk.setBlock(x, y, z, oreBlockId);
+        chunk.fillBlock(x, y, z, oreBlockId);
         
         // Add neighboring positions
         const neighbors = [

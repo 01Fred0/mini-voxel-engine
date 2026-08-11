@@ -87,6 +87,8 @@ export const WorldConfig = {
   // Chunk Settings
   chunkSize: 16, // 16x16 blocks
   chunkHeight: 64, // 64 blocks tall
+  chunkLoadBudgetPerFrame: 2,
+  meshRebuildBudgetPerFrame: 4,
 
   // Render Distance - determined by Quality Preset
   get renderDistance() {
@@ -101,6 +103,8 @@ export const WorldConfig = {
     lacunarity: 2.0,
     heightMultiplier: 32, // Max terrain height variation
     baseHeight: 32, // Sea level
+    biomeNoiseScale: 0.0005,
+    biomeHumidityOffset: 1000,
   },
   
   // Cave Generation
@@ -141,11 +145,12 @@ export const WorldConfig = {
   
   // Physics Settings
   physics: {
-    gravity: -9.8,
+    gravity: 9.8,
     terminalVelocity: -50,
     structuralIntegrity: true, // Enable structural support checks
     supportDistance: 3, // Blocks that can be unsupported
     updateRate: 1/60, // Physics tick rate
+    maxChecksPerFrame: 128, // Max blocks to check structural physics per tick
   },
 };
 

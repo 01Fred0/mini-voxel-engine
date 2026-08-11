@@ -1,5 +1,6 @@
 import { WorldConfig } from '../config.js';
 import { WorldGenerator } from './WorldGenerator.js';
+import { LightingSystem } from './LightingSystem.js';
 
 /**
  * ChunkManager - Manages chunk loading and unloading
@@ -9,6 +10,7 @@ export class ChunkManager {
   constructor(seed = null) {
     this.generator = new WorldGenerator(seed);
     this.chunks = new Map();  // key: 'x,z' -> Chunk
+    this.lightingSystem = new LightingSystem(this);
     this.renderDistance = WorldConfig.renderDistance;
     this.chunkSize = WorldConfig.chunkSize;
     
@@ -76,6 +78,9 @@ export class ChunkManager {
     const key = this.getChunkKey(chunkX, chunkZ);
     this.chunks.set(key, chunk);
     
+    // Calculate lighting
+    this.lightingSystem.calculateChunkLighting(chunk);
+
     // Add to rebuild queue
     this.dirtyRebuildChunks.add(chunk);
 
@@ -112,6 +117,19 @@ export class ChunkManager {
     return false;
   }
 
+  _drainLoadQueue(limit, loaded) {
+    let count = 0;
+    while (this.loadQueue.length > 0 && count < limit) {
+      const next = this.loadQueue.shift();
+      const key = this.getChunkKey(next.x, next.z);
+      if (this._requiredChunks.has(key) && !this.hasChunk(next.x, next.z)) {
+        const chunk = this.loadChunk(next.x, next.z);
+        loaded.push(chunk);
+        count++;
+      }
+    }
+  }
+
   // Update loaded chunks based on player position (priority-based load budget)
   updateChunks(playerX, playerZ) {
     const playerChunk = this.worldToChunk(playerX, playerZ);
@@ -123,19 +141,7 @@ export class ChunkManager {
     if (playerChunk.x === this.lastPlayerChunk.x &&
         playerChunk.z === this.lastPlayerChunk.z) {
 
-      // Load at most 2 chunks from queue per frame
-      const limit = 2;
-      let count = 0;
-      while (this.loadQueue.length > 0 && count < limit) {
-        const next = this.loadQueue.shift();
-        const key = this.getChunkKey(next.x, next.z);
-        if (this._requiredChunks.has(key) && !this.hasChunk(next.x, next.z)) {
-          const chunk = this.loadChunk(next.x, next.z);
-          loaded.push(chunk);
-          count++;
-        }
-      }
-
+      this._drainLoadQueue(WorldConfig.chunkLoadBudgetPerFrame, loaded);
       return { loaded, unloaded };
     }
 
@@ -161,8 +167,8 @@ export class ChunkManager {
     // Unload chunks that are too far
     for (const [key, chunk] of this.chunks.entries()) {
       if (!requiredChunks.has(key)) {
+        unloaded.push({ x: chunk.x, z: chunk.z });
         this.unloadChunk(chunk.x, chunk.z);
-        unloaded.push(chunk);
       }
     }
 
@@ -179,18 +185,7 @@ export class ChunkManager {
     // Sort closest first
     this.loadQueue.sort((a, b) => a.distanceSq - b.distanceSq);
 
-    // Load at most 2 chunks from queue per frame
-    const limit = 2;
-    let count = 0;
-    while (this.loadQueue.length > 0 && count < limit) {
-      const next = this.loadQueue.shift();
-      const key = this.getChunkKey(next.x, next.z);
-      if (requiredChunks.has(key) && !this.hasChunk(next.x, next.z)) {
-        const chunk = this.loadChunk(next.x, next.z);
-        loaded.push(chunk);
-        count++;
-      }
-    }
+    this._drainLoadQueue(WorldConfig.chunkLoadBudgetPerFrame, loaded);
     
     return { loaded, unloaded };
   }

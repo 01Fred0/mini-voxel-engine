@@ -90,8 +90,8 @@ class VoxelEngine {
       return distA - distB;
     });
 
-    // Budget: rebuild at most 4 chunks per frame to avoid stuttering/hitching
-    const limit = 4;
+    // Budget: rebuild at most X chunks per frame to avoid stuttering/hitching
+    const limit = WorldConfig.meshRebuildBudgetPerFrame;
     let count = 0;
     for (const chunk of needingRebuild) {
       if (count >= limit) break;
