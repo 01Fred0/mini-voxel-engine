@@ -18,6 +18,7 @@ export class ChunkManager {
     // Sets to track dirty chunks (avoids garbage allocation inside game loop)
     this.dirtyPhysicsChunks = new Set();
     this.dirtyRebuildChunks = new Set();
+    this._requiredChunks = new Set();
   }
 
   // Get chunk key for storage
@@ -100,10 +101,33 @@ export class ChunkManager {
   // Update loaded chunks based on player position (priority-based load budget)
   updateChunks(playerX, playerZ) {
     const playerChunk = this.worldToChunk(playerX, playerZ);
-    const requiredChunks = new Set();
     const loaded = [];
     const unloaded = [];
     
+    // If player is in the same chunk, we can skip the expensive requiredChunks calculation
+    // and just process the load queue.
+    if (playerChunk.x === this.lastPlayerChunk.x &&
+        playerChunk.z === this.lastPlayerChunk.z) {
+
+      // Load at most 2 chunks from queue per frame
+      const limit = 2;
+      let count = 0;
+      while (this.loadQueue.length > 0 && count < limit) {
+        const next = this.loadQueue.shift();
+        const key = this.getChunkKey(next.x, next.z);
+        if (this._requiredChunks.has(key) && !this.hasChunk(next.x, next.z)) {
+          const chunk = this.loadChunk(next.x, next.z);
+          loaded.push(chunk);
+          count++;
+        }
+      }
+
+      return { loaded, unloaded };
+    }
+
+    this.lastPlayerChunk = playerChunk;
+    this._requiredChunks.clear();
+    const requiredChunks = this._requiredChunks;
     const maxDistance = this.renderDistance;
 
     // Determine which chunks should be loaded (circular distance check)
@@ -112,41 +136,34 @@ export class ChunkManager {
         const chunkX = playerChunk.x + x;
         const chunkZ = playerChunk.z + z;
         
-        const distance = Math.sqrt(x * x + z * z);
-        if (distance <= maxDistance) {
+        const distanceSq = x * x + z * z;
+        if (distanceSq <= maxDistance * maxDistance) {
           const key = this.getChunkKey(chunkX, chunkZ);
           requiredChunks.add(key);
         }
       }
     }
     
-    // If player moved to a new chunk, unload distant chunks and rebuild priority queue
-    if (playerChunk.x !== this.lastPlayerChunk.x ||
-        playerChunk.z !== this.lastPlayerChunk.z) {
-
-      this.lastPlayerChunk = playerChunk;
-
-      // Unload chunks that are too far
-      for (const [key, chunk] of this.chunks.entries()) {
-        if (!requiredChunks.has(key)) {
-          this.unloadChunk(chunk.x, chunk.z);
-          unloaded.push(chunk);
-        }
+    // Unload chunks that are too far
+    for (const [key, chunk] of this.chunks.entries()) {
+      if (!requiredChunks.has(key)) {
+        this.unloadChunk(chunk.x, chunk.z);
+        unloaded.push(chunk);
       }
-
-      // Rebuild the load queue with pending chunks
-      this.loadQueue = [];
-      for (const key of requiredChunks) {
-        const [cx, cz] = key.split(',').map(Number);
-        if (!this.hasChunk(cx, cz)) {
-          const distance = Math.sqrt((cx - playerChunk.x) ** 2 + (cz - playerChunk.z) ** 2);
-          this.loadQueue.push({ x: cx, z: cz, distance });
-        }
-      }
-
-      // Sort closest first
-      this.loadQueue.sort((a, b) => a.distance - b.distance);
     }
+
+    // Rebuild the load queue with pending chunks
+    this.loadQueue = [];
+    for (const key of requiredChunks) {
+      const [cx, cz] = key.split(',').map(Number);
+      if (!this.hasChunk(cx, cz)) {
+        const distanceSq = (cx - playerChunk.x) ** 2 + (cz - playerChunk.z) ** 2;
+        this.loadQueue.push({ x: cx, z: cz, distanceSq });
+      }
+    }
+
+    // Sort closest first
+    this.loadQueue.sort((a, b) => a.distanceSq - b.distanceSq);
 
     // Load at most 2 chunks from queue per frame
     const limit = 2;

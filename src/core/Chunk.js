@@ -94,6 +94,25 @@ export class Chunk {
     this.dirtyBlocks.add(`${x},${y},${z}`);
     this.needsPhysicsUpdate = true;
     this.needsRebuild = true;
+
+    // Set neighbor chunks as needing rebuild if edge block is modified
+    if (this.chunkManager) {
+      if (x === 0) {
+        const neighbor = this.chunkManager.getChunk(this.x - 1, this.z);
+        if (neighbor) neighbor.needsRebuild = true;
+      } else if (x === this.size - 1) {
+        const neighbor = this.chunkManager.getChunk(this.x + 1, this.z);
+        if (neighbor) neighbor.needsRebuild = true;
+      }
+
+      if (z === 0) {
+        const neighbor = this.chunkManager.getChunk(this.x, this.z - 1);
+        if (neighbor) neighbor.needsRebuild = true;
+      } else if (z === this.size - 1) {
+        const neighbor = this.chunkManager.getChunk(this.x, this.z + 1);
+        if (neighbor) neighbor.needsRebuild = true;
+      }
+    }
     
     return true;
   }
@@ -173,13 +192,7 @@ export class Chunk {
   dispose() {
     if (this.mesh) {
       if (this.mesh.geometry) this.mesh.geometry.dispose();
-      if (this.mesh.material) {
-        if (Array.isArray(this.mesh.material)) {
-          this.mesh.material.forEach(m => m.dispose());
-        } else {
-          this.mesh.material.dispose();
-        }
-      }
+      // DO NOT dispose this.mesh.material because it is shared!
       this.mesh = null;
     }
   }

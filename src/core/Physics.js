@@ -20,6 +20,7 @@ export class Physics {
     
     // Blocks awaiting physics updates
     this.pendingUpdates = new Set();
+    this.tempUpdates = new Set();
     this.fallingBlocks = new Map();  // Track blocks that are falling
   }
 
@@ -44,17 +45,21 @@ export class Physics {
     }
     
     // Check structural integrity for pending updates
-    const updates = Array.from(this.pendingUpdates);
-    this.pendingUpdates.clear();
+    const temp = this.pendingUpdates;
+    this.pendingUpdates = this.tempUpdates;
+    this.tempUpdates = temp;
     
-    for (const posKey of updates) {
+    for (const posKey of this.tempUpdates) {
       const [x, y, z] = posKey.split(',').map(Number);
       this.checkBlockPhysics(x, y, z);
     }
+
+    this.tempUpdates.clear();
   }
 
   // Check if a block should fall or needs support
   checkBlockPhysics(x, y, z) {
+    if (y === 0) return; // Early exit for bedrock level
     if (!this.chunkManager) return;
     const chunk = this.chunkManager.getChunkAt(x, z);
     if (!chunk) return;
@@ -77,6 +82,10 @@ export class Physics {
     
     // Check structural integrity
     if (this.structuralIntegrity && props.canSupport !== false) {
+      // Skip structural integrity check on blocks that are not gravity-affected and can support blocks
+      if (props.affectedByGravity === false && props.canSupport !== false) {
+        return;
+      }
       if (!this.hasStructuralSupport(x, y, z)) {
         // Block loses support - start falling
         this.startFalling(x, y, z, blockType);

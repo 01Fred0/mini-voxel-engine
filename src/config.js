@@ -111,27 +111,10 @@ export function setSeed(newSeed) {
 // Export new Block system
 export { Blocks, BlocksById, getBlockById };
 
-// Legacy BlockTypes for backward compatibility
-export const BlockTypes = {
-  AIR: Blocks.AIR.id,
-  GRASS: Blocks.GRASS.id,
-  DIRT: Blocks.DIRT.id,
-  STONE: Blocks.STONE.id,
-  SAND: Blocks.SAND.id,
-  WOOD: Blocks.WOOD.id,
-  LEAVES: Blocks.LEAVES.id,
-  BEDROCK: Blocks.BEDROCK.id,
-  WATER: Blocks.WATER.id,
-  LAVA: Blocks.LAVA.id,
-  GLASS: Blocks.GLASS.id,
-  COAL_ORE: Blocks.COAL_ORE.id,
-  IRON_ORE: Blocks.IRON_ORE.id,
-  GOLD_ORE: Blocks.GOLD_ORE.id,
-  DIAMOND_ORE: Blocks.DIAMOND_ORE.id,
-  GRAVEL: Blocks.GRAVEL.id,
-  SNOW: Blocks.SNOW.id,
-  ICE: Blocks.ICE.id,
-};
+// Auto-generate BlockTypes from Blocks to eliminate the manual sync requirement
+export const BlockTypes = Object.fromEntries(
+  Object.entries(Blocks).map(([key, block]) => [key, block.id])
+);
 
 // Helper function to get block properties
 export function getBlockProperties(blockId) {

@@ -15,9 +15,10 @@ export class MeshBuilder {
   /**
    * Build mesh for a chunk
    * @param {Chunk} chunk - The chunk to build a mesh for
+   * @param {THREE.Material} material - The shared chunk material
    * @returns {THREE.Mesh|null} The generated mesh or null if empty
    */
-  buildChunkMesh(chunk) {
+  buildChunkMesh(chunk, material) {
     const geometry = new THREE.BufferGeometry();
     const vertices = [];
     const normals = [];
@@ -79,14 +80,7 @@ export class MeshBuilder {
     geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
     geometry.setIndex(indices);
 
-    // Create material with vertex colors and flat shading
-    const material = new THREE.MeshLambertMaterial({
-      vertexColors: true,
-      side: THREE.FrontSide,
-      flatShading: true
-    });
-
-    // Create mesh
+    // Create mesh using the shared material
     const mesh = new THREE.Mesh(geometry, material);
     mesh.position.set(
       chunk.x * chunk.size,

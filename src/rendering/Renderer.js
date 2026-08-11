@@ -11,7 +11,7 @@ export class Renderer {
       antialias: true,
       alpha: false
     });
-    this.renderer.setPixelRatio(window.devicePixelRatio);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setClearColor(0x87CEEB); // Sky blue
     this.renderer.shadowMap.enabled = true;
@@ -36,6 +36,13 @@ export class Renderer {
     // Mesh builder for chunk meshes
     this.meshBuilder = new MeshBuilder();
     
+    // Create shared chunk material
+    this.sharedChunkMaterial = new THREE.MeshLambertMaterial({
+      vertexColors: true,
+      side: THREE.FrontSide,
+      flatShading: true
+    });
+
     // Track chunk meshes
     this.chunkMeshes = new Map(); // Map<chunkKey, THREE.Mesh>
     
@@ -89,18 +96,12 @@ export class Renderer {
       const oldMesh = this.chunkMeshes.get(chunkKey);
       this.scene.remove(oldMesh);
       if (oldMesh.geometry) oldMesh.geometry.dispose();
-      if (oldMesh.material) {
-        if (Array.isArray(oldMesh.material)) {
-          oldMesh.material.forEach(m => m.dispose());
-        } else {
-          oldMesh.material.dispose();
-        }
-      }
+      // DO NOT dispose oldMesh.material because it is shared!
       this.chunkMeshes.delete(chunkKey);
     }
     
-    // Build new mesh using MeshBuilder
-    const mesh = this.meshBuilder.buildChunkMesh(chunk);
+    // Build new mesh using MeshBuilder with shared material
+    const mesh = this.meshBuilder.buildChunkMesh(chunk, this.sharedChunkMaterial);
     
     if (!mesh) {
       chunk.mesh = null;
@@ -121,13 +122,7 @@ export class Renderer {
       const mesh = this.chunkMeshes.get(chunkKey);
       this.scene.remove(mesh);
       if (mesh.geometry) mesh.geometry.dispose();
-      if (mesh.material) {
-        if (Array.isArray(mesh.material)) {
-          mesh.material.forEach(m => m.dispose());
-        } else {
-          mesh.material.dispose();
-        }
-      }
+      // DO NOT dispose mesh.material because it is shared!
       this.chunkMeshes.delete(chunkKey);
     }
   }
@@ -162,16 +157,15 @@ export class Renderer {
     this.chunkMeshes.forEach((mesh) => {
       this.scene.remove(mesh);
       if (mesh.geometry) mesh.geometry.dispose();
-      if (mesh.material) {
-        if (Array.isArray(mesh.material)) {
-          mesh.material.forEach(m => m.dispose());
-        } else {
-          mesh.material.dispose();
-        }
-      }
+      // DO NOT dispose mesh.material because it is shared!
     });
     this.chunkMeshes.clear();
     
+    // Dispose shared material
+    if (this.sharedChunkMaterial) {
+      this.sharedChunkMaterial.dispose();
+    }
+
     this.renderer.dispose();
   }
 }
