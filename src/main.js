@@ -6,6 +6,7 @@ import { CameraController } from './rendering/CameraController.js';
 import { InputHandler } from './core/InputHandler.js';
 import { VoxelParticleSystem } from './core/VoxelParticleSystem.js';
 import { UIManager } from './core/UIManager.js';
+import { Profiler } from './core/Profiler.js';
 
 class VoxelEngine {
   constructor() {
@@ -14,6 +15,9 @@ class VoxelEngine {
     if (!this.canvas) {
       throw new Error('Canvas element not found');
     }
+
+    // Initialize Profiler first
+    this.profiler = new Profiler();
     
     // Initialize renderer
     this.renderer = new Renderer(this.canvas);
@@ -26,9 +30,11 @@ class VoxelEngine {
     
     // Initialize chunk manager
     this.chunkManager = new ChunkManager(WorldConfig.seed);
+    this.chunkManager.profiler = this.profiler;
     
     // Initialize physics
     this.physics = new Physics(this.chunkManager);
+    this.physics.profiler = this.profiler;
 
     // Initialize particle system
     this.particleSystem = new VoxelParticleSystem(this.renderer.scene);
@@ -50,6 +56,9 @@ class VoxelEngine {
     this.frameCount = 0;
     this.fpsUpdateTime = 0;
     
+    this.fixedTimestep = 1 / 60; // simulation runs at a fixed 60Hz regardless of render framerate
+    this.accumulator = 0;
+
     // Initialize UI Manager with active quality setting
     this.uiManager = new UIManager(this.canvas, WorldConfig.quality);
     
@@ -62,6 +71,7 @@ class VoxelEngine {
   }
   
   updateChunks() {
+    this.profiler.start('chunkUpdate');
     const cameraPos = this.cameraController.getPosition();
     const result = this.chunkManager.updateChunks(cameraPos.x, cameraPos.z);
     
@@ -69,16 +79,23 @@ class VoxelEngine {
     for (const chunk of result.unloaded) {
       this.renderer.removeChunkMesh(chunk.x, chunk.z);
     }
+    this.profiler.end('chunkUpdate');
   }
   
   updatePhysics(deltaTime) {
+    this.profiler.start('physics');
     // Run the global physics update
     this.physics.update(deltaTime);
+    this.profiler.end('physics');
   }
 
   updateMeshes() {
+    this.profiler.start('meshRebuild');
     const needingRebuild = this.chunkManager.getChunksNeedingRebuild();
-    if (needingRebuild.length === 0) return;
+    if (needingRebuild.length === 0) {
+      this.profiler.end('meshRebuild');
+      return;
+    }
 
     const cameraPos = this.cameraController.getPosition();
     const playerChunk = this.chunkManager.worldToChunk(cameraPos.x, cameraPos.z);
@@ -99,6 +116,7 @@ class VoxelEngine {
       chunk.needsRebuild = false;
       count++;
     }
+    this.profiler.end('meshRebuild');
   }
   
   updateFPS(deltaTime) {
@@ -107,7 +125,20 @@ class VoxelEngine {
     
     if (this.fpsUpdateTime >= 0.5) { // Update every 0.5 seconds
       const fps = Math.round(this.frameCount / this.fpsUpdateTime);
-      this.uiManager.updateFPS(fps, this.chunkManager.chunks.size);
+
+      const metrics = {
+        fps: fps,
+        chunkCount: this.chunkManager.chunks.size,
+        dirtyRebuildQueueLength: this.chunkManager.dirtyRebuildChunks.size,
+        dirtyPhysicsQueueLength: this.chunkManager.dirtyPhysicsChunks.size,
+        avgChunkGenMs: this.profiler.average('chunkGen'),
+        avgMeshRebuildMs: this.profiler.average('meshRebuild'),
+        avgPhysicsMs: this.profiler.average('physics'),
+        avgChunkUpdateMs: this.profiler.average('chunkUpdate'),
+        drawCalls: this.renderer.renderer.info.render.calls
+      };
+
+      this.uiManager.updateProfiler(metrics);
       this.frameCount = 0;
       this.fpsUpdateTime = 0;
     }
@@ -116,27 +147,21 @@ class VoxelEngine {
   gameLoop() {
     if (!this.isRunning) return;
     
-    // Calculate delta time
     const currentTime = performance.now();
-    const deltaTime = (currentTime - this.lastTime) / 1000; // Convert to seconds
+    const frameTime = Math.min((currentTime - this.lastTime) / 1000, 0.25); // clamp to avoid spiral of death
     this.lastTime = currentTime;
-    
-    // Update camera controller
-    this.cameraController.update(deltaTime);
-    
-    // Update chunks (load/unload based on camera position)
-    this.updateChunks();
-    
-    // Update physics
-    this.updatePhysics(deltaTime);
+    this.accumulator += frameTime;
 
-    // Update meshes (budget-controlled mesh rebuilding)
+    while (this.accumulator >= this.fixedTimestep) {
+      this.updateChunks();
+      this.updatePhysics(this.fixedTimestep);
+      this.accumulator -= this.fixedTimestep;
+    }
+
+    // Rendering and client-side systems run every animation frame
+    this.cameraController.update(frameTime);
     this.updateMeshes();
-    
-    // Update FPS display
-    this.updateFPS(deltaTime);
-    
-    // Render scene
+    this.updateFPS(frameTime);
     this.renderer.render();
     
     // Continue loop

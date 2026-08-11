@@ -49,10 +49,12 @@ export class Physics {
     this.pendingUpdates = this.tempUpdates;
     this.tempUpdates = temp;
     
+    const budget = WorldConfig.physics.maxChecksPerFrame ?? 128;
     let processed = 0;
+
     for (const posKey of this.tempUpdates) {
-      if (processed >= this.maxChecksPerFrame) {
-        this.pendingUpdates.add(posKey);
+      if (processed >= budget) {
+        this.pendingUpdates.add(posKey); // defer to next frame
         continue;
       }
       const [x, y, z] = posKey.split(',').map(Number);

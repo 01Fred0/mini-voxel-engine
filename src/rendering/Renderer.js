@@ -96,43 +96,72 @@ export class Renderer {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
   }
   
-  // Update or create mesh for a chunk
+  // Update or create meshes for sections of a chunk that need rebuild
   updateChunkMesh(chunk) {
-    const chunkKey = `${chunk.x},${chunk.z}`;
+    for (let i = 0; i < chunk.sections.length; i++) {
+      const section = chunk.sections[i];
+      if (section.needsRebuild) {
+        if (section.isSectionFullyBuried()) {
+          // Remove old mesh if exists since it is now fully buried
+          const sectionKey = `${chunk.x},${chunk.z},${i}`;
+          if (this.chunkMeshes.has(sectionKey)) {
+            const oldMesh = this.chunkMeshes.get(sectionKey);
+            this.scene.remove(oldMesh);
+            if (oldMesh.geometry) oldMesh.geometry.dispose();
+            this.chunkMeshes.delete(sectionKey);
+          }
+          section.mesh = null;
+          section.needsRebuild = false;
+          continue;
+        }
+
+        this.updateChunkSectionMesh(chunk, i);
+        section.needsRebuild = false;
+      }
+    }
+  }
+
+  // Update or create mesh for a single chunk section
+  updateChunkSectionMesh(chunk, sectionIndex) {
+    const sectionKey = `${chunk.x},${chunk.z},${sectionIndex}`;
     
     // Remove old mesh if exists
-    if (this.chunkMeshes.has(chunkKey)) {
-      const oldMesh = this.chunkMeshes.get(chunkKey);
+    if (this.chunkMeshes.has(sectionKey)) {
+      const oldMesh = this.chunkMeshes.get(sectionKey);
       this.scene.remove(oldMesh);
       if (oldMesh.geometry) oldMesh.geometry.dispose();
       // DO NOT dispose oldMesh.material because it is shared!
-      this.chunkMeshes.delete(chunkKey);
+      this.chunkMeshes.delete(sectionKey);
     }
     
     // Build new mesh using MeshBuilder with shared material
-    const mesh = this.meshBuilder.buildChunkMesh(chunk, this.sharedChunkMaterial);
+    const mesh = this.meshBuilder.buildChunkSectionMesh(chunk, sectionIndex, this.sharedChunkMaterial);
     
     if (!mesh) {
-      chunk.mesh = null;
+      chunk.sections[sectionIndex].mesh = null;
       return;
     }
     
-    // Add to scene, track, and set reference on chunk
+    mesh.userData.section = chunk.sections[sectionIndex];
+
+    // Add to scene, track, and set reference on section
     this.scene.add(mesh);
-    this.chunkMeshes.set(chunkKey, mesh);
-    chunk.mesh = mesh;
+    this.chunkMeshes.set(sectionKey, mesh);
+    chunk.sections[sectionIndex].mesh = mesh;
   }
   
-  // Remove chunk mesh
+  // Remove chunk meshes for all sections
   removeChunkMesh(chunkX, chunkZ) {
-    const chunkKey = `${chunkX},${chunkZ}`;
+    const chunkKeyPrefix = `${chunkX},${chunkZ},`;
     
-    if (this.chunkMeshes.has(chunkKey)) {
-      const mesh = this.chunkMeshes.get(chunkKey);
-      this.scene.remove(mesh);
-      if (mesh.geometry) mesh.geometry.dispose();
-      // DO NOT dispose mesh.material because it is shared!
-      this.chunkMeshes.delete(chunkKey);
+    for (const key of Array.from(this.chunkMeshes.keys())) {
+      if (key.startsWith(chunkKeyPrefix)) {
+        const mesh = this.chunkMeshes.get(key);
+        this.scene.remove(mesh);
+        if (mesh.geometry) mesh.geometry.dispose();
+        // DO NOT dispose mesh.material because it is shared!
+        this.chunkMeshes.delete(key);
+      }
     }
   }
   
@@ -153,8 +182,36 @@ export class Renderer {
     return direction;
   }
   
+  updateFrustum(camera) {
+    const projScreenMatrix = new THREE.Matrix4();
+    projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+    this.frustum = new THREE.Frustum();
+    this.frustum.setFromProjectionMatrix(projScreenMatrix);
+  }
+
+  isSectionVisible(section) {
+    if (!section.threeBox3) {
+      if (!section.boundingBox) return true;
+      section.threeBox3 = new THREE.Box3(
+        new THREE.Vector3(section.boundingBox.min.x, section.boundingBox.min.y, section.boundingBox.min.z),
+        new THREE.Vector3(section.boundingBox.max.x, section.boundingBox.max.y, section.boundingBox.max.z)
+      );
+    }
+    return this.frustum.intersectsBox(section.threeBox3);
+  }
+
   // Render frame
   render() {
+    this.updateFrustum(this.camera);
+
+    // Filter chunk section meshes using frustum culling
+    for (const [key, mesh] of this.chunkMeshes.entries()) {
+      const section = mesh.userData.section;
+      if (section) {
+        mesh.visible = this.isSectionVisible(section);
+      }
+    }
+
     this.renderer.render(this.scene, this.camera);
   }
   

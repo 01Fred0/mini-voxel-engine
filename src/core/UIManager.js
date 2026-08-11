@@ -85,6 +85,31 @@ export class UIManager {
   }
 
   /**
+   * Update the performance profiler HUD display
+   */
+  updateProfiler(metrics) {
+    if (this.fpsElement) {
+      const {
+        fps,
+        chunkCount,
+        dirtyRebuildQueueLength,
+        dirtyPhysicsQueueLength,
+        avgChunkGenMs,
+        avgMeshRebuildMs,
+        avgPhysicsMs,
+        avgChunkUpdateMs,
+        drawCalls
+      } = metrics;
+      this.fpsElement.innerHTML =
+        `FPS: ${fps} | Chunks: ${chunkCount}<br>` +
+        `Rebuild Q: ${dirtyRebuildQueueLength} | Physics Q: ${dirtyPhysicsQueueLength}<br>` +
+        `Chunk Upd: ${avgChunkUpdateMs.toFixed(2)}ms | Physics: ${avgPhysicsMs.toFixed(2)}ms<br>` +
+        `Mesh Rebuild: ${avgMeshRebuildMs.toFixed(2)}ms | Chunk Gen: ${avgChunkGenMs.toFixed(2)}ms<br>` +
+        `Draw Calls: ${drawCalls}`;
+    }
+  }
+
+  /**
    * Dispose event listeners
    */
   dispose() {
