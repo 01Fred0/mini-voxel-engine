@@ -26,21 +26,18 @@ class VoxelEngine {
     this.chunkManager = new ChunkManager(WorldConfig.seed);
     
     // Initialize physics
-    this.physics = new Physics();
+    this.physics = new Physics(this.chunkManager);
 
-        // Initialize input handler
+    // Initialize input handler
     this.inputHandler = new InputHandler(
       this.renderer.camera,
       this.chunkManager,
       this.renderer
     );
     
-    // Track loaded chunks
-    this.loadedChunks = new Map();
-
-
-        // Prevent right-click context menu
+    // Prevent right-click context menu
     this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
     // Performance tracking
     this.lastTime = performance.now();
     this.frameCount = 0;
@@ -114,68 +111,28 @@ class VoxelEngine {
   
   updateChunks() {
     const cameraPos = this.cameraController.getPosition();
-    const chunkX = Math.floor(cameraPos.x / WorldConfig.chunkSize);
-    const chunkZ = Math.floor(cameraPos.z / WorldConfig.chunkSize);
+    const result = this.chunkManager.updateChunks(cameraPos.x, cameraPos.z);
     
-    // Load chunks around player
-    const renderDistance = 4; // Number of chunks to load in each direction
-    const chunksToLoad = [];
-    
-    for (let x = chunkX - renderDistance; x <= chunkX + renderDistance; x++) {
-      for (let z = chunkZ - renderDistance; z <= chunkZ + renderDistance; z++) {
-        const distance = Math.sqrt((x - chunkX) ** 2 + (z - chunkZ) ** 2);
-        if (distance <= renderDistance) {
-          chunksToLoad.push({ x, z, distance });
-        }
-      }
+    // Load meshes for newly loaded chunks
+    for (const chunk of result.loaded) {
+      this.renderer.updateChunkMesh(chunk);
     }
     
-    // Sort by distance (load closest first)
-    chunksToLoad.sort((a, b) => a.distance - b.distance);
-    
-    // Load new chunks
-    for (const { x, z } of chunksToLoad) {
-      const chunkKey = `${x},${z}`;
-      
-      if (!this.loadedChunks.has(chunkKey)) {
-        const chunk = this.chunkManager.getChunk(x, z);
-        this.loadedChunks.set(chunkKey, chunk);
-        this.renderer.updateChunkMesh(chunk);
-      }
-    }
-    
-    // Unload distant chunks
-    const unloadDistance = renderDistance + 2;
-    const chunksToUnload = [];
-    
-    for (const [chunkKey, chunk] of this.loadedChunks) {
-      const distance = Math.sqrt(
-        (chunk.x - chunkX) ** 2 + (chunk.z - chunkZ) ** 2
-      );
-      
-      if (distance > unloadDistance) {
-        chunksToUnload.push(chunkKey);
-      }
-    }
-    
-    // Unload chunks
-    for (const chunkKey of chunksToUnload) {
-      const chunk = this.loadedChunks.get(chunkKey);
+    // Unload meshes for distant chunks
+    for (const chunk of result.unloaded) {
       this.renderer.removeChunkMesh(chunk.x, chunk.z);
-      this.loadedChunks.delete(chunkKey);
     }
   }
   
   updatePhysics(deltaTime) {
-    // Update physics for all loaded chunks
-    for (const chunk of this.loadedChunks.values()) {
-      this.physics.update(chunk, deltaTime);
-      
-      // If chunk was modified by physics, update its mesh
-      if (chunk.needsRebuild) {
-        this.renderer.updateChunkMesh(chunk);
-        chunk.needsRebuild = false;
-      }
+    // Run the global physics update
+    this.physics.update(deltaTime);
+
+    // Rebuild meshes only for chunks that actually need it
+    const needingRebuild = this.chunkManager.getChunksNeedingRebuild();
+    for (const chunk of needingRebuild) {
+      this.renderer.updateChunkMesh(chunk);
+      chunk.needsRebuild = false;
     }
   }
   
@@ -185,7 +142,7 @@ class VoxelEngine {
     
     if (this.fpsUpdateTime >= 0.5) { // Update every 0.5 seconds
       const fps = Math.round(this.frameCount / this.fpsUpdateTime);
-      this.fpsElement.textContent = `FPS: ${fps} | Chunks: ${this.loadedChunks.size}`;
+      this.fpsElement.textContent = `FPS: ${fps} | Chunks: ${this.chunkManager.chunks.size}`;
       this.frameCount = 0;
       this.fpsUpdateTime = 0;
     }
@@ -221,7 +178,7 @@ class VoxelEngine {
   dispose() {
     this.isRunning = false;
     this.cameraController.dispose();
-        this.inputHandler.dispose();
+    this.inputHandler.dispose();
     this.renderer.dispose();
     this.chunkManager.dispose();
     if (this.fpsElement) {

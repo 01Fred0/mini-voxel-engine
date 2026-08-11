@@ -10,7 +10,7 @@ export class InputHandler {
     this.raycaster = new THREE.Raycaster();
     this.raycaster.far = 10; // Max reach distance
     
-    this.selectedBlockType = BlockType.STONE;
+    this.selectedBlockType = BlockTypes.STONE;
     
     // Bind event handlers
     this.onMouseDown = this.onMouseDown.bind(this);
@@ -117,10 +117,10 @@ export class InputHandler {
     
     // Check if block exists
     const currentBlock = chunk.getBlock(localX, y, localZ);
-    if (currentBlock === BlockType.AIR) return;
+    if (currentBlock === BlockTypes.AIR) return;
     
     // Break block
-    chunk.setBlock(localX, y, localZ, BlockType.AIR);
+    chunk.setBlock(localX, y, localZ, BlockTypes.AIR);
     
     // Update chunk mesh
     this.renderer.updateChunkMesh(chunk);
@@ -163,7 +163,7 @@ export class InputHandler {
     
     // Check if position is already occupied
     const currentBlock = chunk.getBlock(localX, y, localZ);
-    if (currentBlock !== BlockType.AIR) return;
+    if (currentBlock !== BlockTypes.AIR) return;
     
     // Place block
     chunk.setBlock(localX, y, localZ, this.selectedBlockType);

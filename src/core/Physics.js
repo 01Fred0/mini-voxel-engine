@@ -1,5 +1,5 @@
-import { WorldConfig, BlockTypes } from '../config.js'
-  ;import { VoxelParticleSystem } from './VoxelParticleSystem.js';
+import { WorldConfig, BlockTypes, getBlockProperties } from '../config.js';
+import { VoxelParticleSystem } from './VoxelParticleSystem.js';
 
 /**
  * Physics Engine - Handles voxel physics (Rust-like mechanics)
@@ -55,6 +55,7 @@ export class Physics {
 
   // Check if a block should fall or needs support
   checkBlockPhysics(x, y, z) {
+    if (!this.chunkManager) return;
     const chunk = this.chunkManager.getChunkAt(x, z);
     if (!chunk) return;
     
@@ -63,7 +64,7 @@ export class Physics {
     
     if (blockType === BlockTypes.AIR) return;
     
-    const props = BlockProperties[blockType];
+    const props = getBlockProperties(blockType);
     if (!props) return;
     
     // Check if block is affected by gravity
@@ -90,6 +91,7 @@ export class Physics {
   hasSupport(x, y, z) {
     if (y <= 0) return true;  // Bedrock
     
+    if (!this.chunkManager) return false;
     const belowChunk = this.chunkManager.getChunkAt(x, z);
     if (!belowChunk) return false;
     
@@ -100,18 +102,20 @@ export class Physics {
       return false;
     }
     
-    const belowProps = BlockProperties[blockBelow];
+    const belowProps = getBlockProperties(blockBelow);
     return belowProps && belowProps.canSupport !== false;
   }
 
   // Check if block has structural support (connected to ground)
   hasStructuralSupport(x, y, z) {
+    if (!this.chunkManager) return false;
     // Use flood fill to check if connected to ground
     const visited = new Set();
     const queue = [[x, y, z, 0]];
+    let head = 0;
     
-    while (queue.length > 0) {
-      const [cx, cy, cz, distance] = queue.shift();
+    while (head < queue.length) {
+      const [cx, cy, cz, distance] = queue[head++];
       const key = `${cx},${cy},${cz}`;
       
       if (visited.has(key)) continue;
@@ -143,7 +147,7 @@ export class Physics {
         const blockType = chunk.getBlock(localPos.x, localPos.y, localPos.z);
         
         if (blockType !== BlockTypes.AIR && blockType !== BlockTypes.WATER) {
-          const props = BlockProperties[blockType];
+          const props = getBlockProperties(blockType);
           if (props && props.canSupport !== false) {
             queue.push([nx, ny, nz, distance + 1]);
           }
@@ -156,6 +160,7 @@ export class Physics {
 
   // Start a block falling
   startFalling(x, y, z, blockType) {
+    if (!this.chunkManager) return;
     const key = `${x},${y},${z}`;
     
     if (this.fallingBlocks.has(key)) return;
@@ -181,6 +186,7 @@ export class Physics {
 
   // Update all falling blocks
   updateFallingBlocks(deltaTime) {
+    if (!this.chunkManager) return;
     const toRemove = [];
     
     for (const [key, block] of this.fallingBlocks.entries()) {
@@ -243,6 +249,7 @@ export class Physics {
 
   // Handle block destruction
   onBlockDestroyed(x, y, z) {
+    if (!this.chunkManager) return;
     // Get block type before it's destroyed for particle effect
     const chunk = this.chunkManager.getChunkAt(x, z);
     let blockType = null;

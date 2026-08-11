@@ -1,9 +1,41 @@
 // World Configuration
 import { Blocks, BlocksById, getBlockById } from './core/Block.js';
 
+// Helper to determine seed from URLSearchParams, localStorage, or fallback to random
+function getQueryOrLocalStorageSeed() {
+  try {
+    if (typeof window !== 'undefined' && window.location) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlSeed = urlParams.get('seed');
+      if (urlSeed) {
+        const seedNum = parseInt(urlSeed);
+        if (!isNaN(seedNum)) return seedNum;
+      }
+    }
+
+    if (typeof localStorage !== 'undefined') {
+      const localSeed = localStorage.getItem('world_seed');
+      if (localSeed) {
+        const seedNum = parseInt(localSeed);
+        if (!isNaN(seedNum)) return seedNum;
+      }
+    }
+  } catch (e) {
+    // Ignore environments where window/localStorage is unavailable (e.g. Node, non-browser)
+  }
+
+  const randomSeed = Math.floor(Math.random() * 1000000);
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('world_seed', randomSeed.toString());
+    }
+  } catch (e) {}
+  return randomSeed;
+}
+
 export const WorldConfig = {
   // World Seed
-  seed: Math.floor(Math.random() * 1000000),
+  seed: getQueryOrLocalStorageSeed(),
   
   // Chunk Settings
   chunkSize: 16, // 16x16 blocks
@@ -66,6 +98,16 @@ export const WorldConfig = {
   },
 };
 
+// Set seed programmatically for reproducibility
+export function setSeed(newSeed) {
+  WorldConfig.seed = newSeed;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('world_seed', newSeed.toString());
+    }
+  } catch (e) {}
+}
+
 // Export new Block system
 export { Blocks, BlocksById, getBlockById };
 
@@ -100,6 +142,7 @@ export function getBlockProperties(blockId) {
     transparent: block.isTransparent(),
     liquid: block.isLiquid(),
     affectedByGravity: block.isAffectedByGravity(),
+    canSupport: block.isSolid() && !block.isLiquid(),
     emitsLight: block.emitsLight(),
     lightLevel: block.lightLevel,
     opacity: block.opacity,
