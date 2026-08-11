@@ -1,4 +1,5 @@
 import { WorldConfig, BlockTypes } from '../config.js';
+import { ChunkSection } from './ChunkSection.js';
 
 /**
  * Chunk - Represents a 3D section of the world
@@ -24,6 +25,17 @@ export class Chunk {
 
     // Link to ChunkManager (will be set when added/loaded)
     this.chunkManager = null;
+
+    // Heightmap for occlusion culling
+    this.heightMap = new Uint8Array(this.size * this.size);
+
+    // Initialize vertical sections
+    this.sectionHeight = WorldConfig.sectionHeight ?? 16;
+    this.sectionCount = Math.ceil(this.height / this.sectionHeight);
+    this.sections = [];
+    for (let i = 0; i < this.sectionCount; i++) {
+      this.sections.push(new ChunkSection(this, i, this.sectionHeight));
+    }
   }
 
   get needsRebuild() {
@@ -57,7 +69,8 @@ export class Chunk {
   }
 
   index(x, y, z) {
-    return x * this.height * this.size + y * this.size + z;
+    // Layout optimized for horizontal slice (contiguous X and Z access)
+    return x + this.size * (z + this.size * y);
   }
 
   packLocal(x, y, z) {
@@ -74,7 +87,7 @@ export class Chunk {
 
   // Create empty block array
   createBlockArray() {
-    return new Uint8Array(this.size * this.height * this.size);
+    return new Uint16Array(this.size * this.height * this.size);
   }
 
   // Get block at local coordinates
@@ -83,6 +96,24 @@ export class Chunk {
       return BlockTypes.AIR;
     }
     return this.blocks[this.index(x, y, z)];
+  }
+
+  markForRebuild() {
+    this.needsRebuild = true;
+  }
+
+  markBoundaryNeighborsForRebuild(x, z) {
+    if (!this.chunkManager) return;
+    if (x === 0) {
+      this.chunkManager.getChunk(this.x - 1, this.z)?.markForRebuild();
+    } else if (x === this.size - 1) {
+      this.chunkManager.getChunk(this.x + 1, this.z)?.markForRebuild();
+    }
+    if (z === 0) {
+      this.chunkManager.getChunk(this.x, this.z - 1)?.markForRebuild();
+    } else if (z === this.size - 1) {
+      this.chunkManager.getChunk(this.x, this.z + 1)?.markForRebuild();
+    }
   }
 
   // Set block at local coordinates
@@ -102,29 +133,26 @@ export class Chunk {
     this.needsPhysicsUpdate = true;
     this.needsRebuild = true;
 
+    // Mark specific section dirty
+    const sectionIndex = Math.floor(y / this.sectionHeight);
+    if (sectionIndex >= 0 && sectionIndex < this.sectionCount) {
+      this.sections[sectionIndex].markDirty();
+
+      // If the block is on a section boundary, mark the adjacent section too
+      const localY = y % this.sectionHeight;
+      if (localY === 0 && sectionIndex > 0) {
+        this.sections[sectionIndex - 1].markDirty();
+      } else if (localY === this.sectionHeight - 1 && sectionIndex < this.sectionCount - 1) {
+        this.sections[sectionIndex + 1].markDirty();
+      }
+    }
+
     // Update lighting on block change
     if (this.chunkManager && this.chunkManager.lightingSystem) {
       this.chunkManager.lightingSystem.onBlockChange(this, x, y, z, oldBlock, blockType);
     }
 
-    // Set neighbor chunks as needing rebuild if edge block is modified
-    if (this.chunkManager) {
-      if (x === 0) {
-        const neighbor = this.chunkManager.getChunk(this.x - 1, this.z);
-        if (neighbor) neighbor.needsRebuild = true;
-      } else if (x === this.size - 1) {
-        const neighbor = this.chunkManager.getChunk(this.x + 1, this.z);
-        if (neighbor) neighbor.needsRebuild = true;
-      }
-
-      if (z === 0) {
-        const neighbor = this.chunkManager.getChunk(this.x, this.z - 1);
-        if (neighbor) neighbor.needsRebuild = true;
-      } else if (z === this.size - 1) {
-        const neighbor = this.chunkManager.getChunk(this.x, this.z + 1);
-        if (neighbor) neighbor.needsRebuild = true;
-      }
-    }
+    this.markBoundaryNeighborsForRebuild(x, z);
     
     return true;
   }

@@ -1,6 +1,8 @@
 import { WorldConfig } from '../config.js';
 import { WorldGenerator } from './WorldGenerator.js';
 import { LightingSystem } from './LightingSystem.js';
+import { Chunk } from './Chunk.js';
+import GenerationWorker from '../workers/generation.worker.js?worker';
 
 /**
  * ChunkManager - Manages chunk loading and unloading
@@ -21,6 +23,56 @@ export class ChunkManager {
     this.dirtyPhysicsChunks = new Set();
     this.dirtyRebuildChunks = new Set();
     this._requiredChunks = new Set();
+
+    // Web Worker Initialization using 100% compatible Vite classic-worker bundling
+    this.pendingGeneration = new Set();
+    this.worker = new GenerationWorker();
+
+    this.worker.onerror = (err) => {
+      console.error("Web Worker Generation Error:", err);
+    };
+
+    this.worker.postMessage({ type: 'init', seed: seed || WorldConfig.seed });
+    this.worker.onmessage = (e) => {
+      const { chunkX, chunkZ, blocksBuffer, heightMapBuffer } = e.data;
+      const key = this.getChunkKey(chunkX, chunkZ);
+
+      this.pendingGeneration.delete(key);
+
+      // Check if we still require this chunk (not unloaded while generating)
+      if (this._requiredChunks.size > 0 && !this._requiredChunks.has(key)) {
+        return;
+      }
+
+      const chunk = new Chunk(chunkX, chunkZ);
+      chunk.blocks = new Uint16Array(blocksBuffer);
+      chunk.heightMap = new Uint8Array(heightMapBuffer);
+      chunk.chunkManager = this;
+
+      this.chunks.set(key, chunk);
+
+      // Calculate lighting
+      if (this.profiler) this.profiler.start('chunkLight');
+      this.lightingSystem.calculateChunkLighting(chunk);
+      if (this.profiler) this.profiler.end('chunkLight');
+
+      // Add to rebuild queue
+      this.dirtyRebuildChunks.add(chunk);
+
+      // Invalidate neighbor chunk meshes so they rebuild and hide boundary faces
+      const neighbors = [
+        [chunkX - 1, chunkZ],
+        [chunkX + 1, chunkZ],
+        [chunkX, chunkZ - 1],
+        [chunkX, chunkZ + 1]
+      ];
+      for (const [nx, nz] of neighbors) {
+        const neighbor = this.getChunk(nx, nz);
+        if (neighbor) {
+          neighbor.needsRebuild = true;
+        }
+      }
+    };
   }
 
   // Get chunk key for storage
@@ -65,45 +117,26 @@ export class ChunkManager {
     return this.chunks.has(this.getChunkKey(chunkX, chunkZ));
   }
 
-  // Load a chunk
+  // Load a chunk asynchronously using Web Workers
   loadChunk(chunkX, chunkZ) {
     if (this.hasChunk(chunkX, chunkZ)) {
       return this.getChunk(chunkX, chunkZ);
     }
     
-    // Generate new chunk
-    const chunk = this.generator.generateChunk(chunkX, chunkZ);
-    chunk.chunkManager = this;
-
     const key = this.getChunkKey(chunkX, chunkZ);
-    this.chunks.set(key, chunk);
-    
-    // Calculate lighting
-    this.lightingSystem.calculateChunkLighting(chunk);
-
-    // Add to rebuild queue
-    this.dirtyRebuildChunks.add(chunk);
-
-    // Invalidate neighbor chunk meshes so they rebuild and hide boundary faces
-    const neighbors = [
-      [chunkX - 1, chunkZ],
-      [chunkX + 1, chunkZ],
-      [chunkX, chunkZ - 1],
-      [chunkX, chunkZ + 1]
-    ];
-    for (const [nx, nz] of neighbors) {
-      const neighbor = this.getChunk(nx, nz);
-      if (neighbor) {
-        neighbor.needsRebuild = true;
-      }
+    if (this.pendingGeneration.has(key)) {
+      return null;
     }
 
-    return chunk;
+    this.pendingGeneration.add(key);
+    this.worker.postMessage({ type: 'generate', chunkX, chunkZ });
+    return null;
   }
 
   // Unload a chunk
   unloadChunk(chunkX, chunkZ) {
     const key = this.getChunkKey(chunkX, chunkZ);
+    this.pendingGeneration.delete(key);
     const chunk = this.chunks.get(key);
     
     if (chunk) {
@@ -117,7 +150,7 @@ export class ChunkManager {
     return false;
   }
 
-  _drainLoadQueue(limit, loaded) {
+  drainLoadQueue(limit, loaded) {
     let count = 0;
     while (this.loadQueue.length > 0 && count < limit) {
       const next = this.loadQueue.shift();
@@ -141,7 +174,7 @@ export class ChunkManager {
     if (playerChunk.x === this.lastPlayerChunk.x &&
         playerChunk.z === this.lastPlayerChunk.z) {
 
-      this._drainLoadQueue(WorldConfig.chunkLoadBudgetPerFrame, loaded);
+      this.drainLoadQueue(WorldConfig.chunkLoadBudgetPerFrame, loaded);
       return { loaded, unloaded };
     }
 
@@ -185,7 +218,7 @@ export class ChunkManager {
     // Sort closest first
     this.loadQueue.sort((a, b) => a.distanceSq - b.distanceSq);
 
-    this._drainLoadQueue(WorldConfig.chunkLoadBudgetPerFrame, loaded);
+    this.drainLoadQueue(WorldConfig.chunkLoadBudgetPerFrame, loaded);
     
     return { loaded, unloaded };
   }

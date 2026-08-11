@@ -271,10 +271,10 @@ export class VoxelParticleSystem {
   /**
    * Update all particles
    */
-  update(deltaTime) {
+  update(deltaTime, gravity = -9.8) {
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const particle = this.particles[i];
-      const alive = particle.update(deltaTime);
+      const alive = particle.update(deltaTime, gravity);
       
       if (!alive) {
         // Remove dead particle

@@ -87,6 +87,7 @@ export const WorldConfig = {
   // Chunk Settings
   chunkSize: 16, // 16x16 blocks
   chunkHeight: 64, // 64 blocks tall
+  sectionHeight: 16, // 16 blocks tall per section
   chunkLoadBudgetPerFrame: 2,
   meshRebuildBudgetPerFrame: 4,
 
@@ -113,6 +114,7 @@ export const WorldConfig = {
     threshold: 0.3, // Higher = fewer caves
     minHeight: 5,
     maxHeight: 50,
+    seedOffset: 1000,
   },
   
   // Ore Generation
@@ -145,10 +147,10 @@ export const WorldConfig = {
   
   // Physics Settings
   physics: {
-    gravity: 9.8,
-    terminalVelocity: -50,
+    gravity: 24,            // positive magnitude, blocks/sec^2
+    terminalVelocity: -40,  // negative, blocks/sec (max fall speed)
     structuralIntegrity: true, // Enable structural support checks
-    supportDistance: 3, // Blocks that can be unsupported
+    supportDistance: 6, // Blocks that can be unsupported
     updateRate: 1/60, // Physics tick rate
     maxChecksPerFrame: 128, // Max blocks to check structural physics per tick
   },

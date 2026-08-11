@@ -16,7 +16,7 @@ export class WorldGenerator {
     
     // Initialize noise generators
     this.noise = new SimplexNoise(this.seed);
-    this.caveNoise = new SimplexNoise(this.seed + 1000); // Different seed for caves
+    this.caveNoise = new SimplexNoise(this.seed + WorldConfig.caves.seedOffset); // Different seed for caves
     
     // Initialize biome and ore generators
     this.biomeGenerator = new BiomeGenerator(this.seed);
@@ -78,6 +78,13 @@ export class WorldGenerator {
     // Apply terrain polishing for enhanced terrain quality
     this.terrainPolisher.polishChunk(chunk, this);
     
+    // Populate heightmap for occlusion culling
+    for (let x = 0; x < size; x++) {
+      for (let z = 0; z < size; z++) {
+        chunk.heightMap[x + z * size] = cache[x * size + z].height;
+      }
+    }
+
     chunk.needsPhysicsUpdate = false; // Initial generation doesn't need physics
     chunk.dirtyBlocks.clear();
     

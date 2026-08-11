@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { BlockTypes, getBlockById } from '../config.js';
 
 /**
- * MeshBuilder - Converts voxel chunks to Three.js meshes
+ * MeshBuilder - Converts voxel chunks and sections to Three.js meshes
  * Uses true greedy meshing on 2D slices along each of the 3 axes
  * Integrates with Block system for dynamic colors and properties
  */
@@ -13,12 +13,17 @@ export class MeshBuilder {
   }
 
   /**
-   * Build mesh for a chunk
-   * @param {Chunk} chunk - The chunk to build a mesh for
+   * Build mesh for a single chunk section
+   * @param {Chunk} chunk - The parent chunk
+   * @param {number} sectionIndex - The index of the section
    * @param {THREE.Material} material - The shared chunk material
-   * @returns {THREE.Mesh|null} The generated mesh or null if empty
+   * @returns {THREE.Mesh|null} The generated section mesh or null if empty
    */
-  buildChunkMesh(chunk, material) {
+  buildChunkSectionMesh(chunk, sectionIndex, material) {
+    const section = chunk.sections[sectionIndex];
+    const yOffset = section.yOffset;
+    const sectionHeight = section.sectionHeight;
+
     const geometry = new THREE.BufferGeometry();
     const vertices = [];
     const normals = [];
@@ -44,11 +49,12 @@ export class MeshBuilder {
 
       // Y-axis slicing
       if (ny !== 0) {
-        const maxC = chunk.height;
+        const minC = yOffset;
+        const maxC = yOffset + sectionHeight;
         const maxU = chunk.size;
         const maxV = chunk.size;
 
-        for (let C = 0; C < maxC; C++) {
+        for (let C = minC; C < maxC; C++) {
           // Build 2D grid for this slice
           const grid = Array(maxU).fill(null).map(() => Array(maxV).fill(null));
           let hasFaces = false;
@@ -128,7 +134,7 @@ export class MeshBuilder {
                 }
 
                 const faceIndices = this.addQuad(
-                  v1, v2, v3, v4,
+                  chunk, v1, v2, v3, v4,
                   normal, block, faceType,
                   vertices, normals, colors, vertexIndex
                 );
@@ -142,17 +148,18 @@ export class MeshBuilder {
       // X-axis slicing
       else if (nx !== 0) {
         const maxC = chunk.size;
-        const maxU = chunk.height;
+        const minU = yOffset;
+        const maxU = yOffset + sectionHeight;
         const maxV = chunk.size;
 
         for (let C = 0; C < maxC; C++) {
-          const grid = Array(maxU).fill(null).map(() => Array(maxV).fill(null));
+          const grid = Array(sectionHeight).fill(null).map(() => Array(maxV).fill(null));
           let hasFaces = false;
 
-          for (let u = 0; u < maxU; u++) {
+          for (let u = 0; u < sectionHeight; u++) {
             for (let v = 0; v < maxV; v++) {
               const x = C;
-              const y = u;
+              const y = minU + u;
               const z = v;
 
               const blockType = chunk.getBlock(x, y, z);
@@ -171,13 +178,13 @@ export class MeshBuilder {
 
           if (!hasFaces) continue;
 
-          const visited = Array(maxU).fill(null).map(() => Array(maxV).fill(false));
+          const visited = Array(sectionHeight).fill(null).map(() => Array(maxV).fill(false));
           for (let v = 0; v < maxV; v++) {
-            for (let u = 0; u < maxU; u++) {
+            for (let u = 0; u < sectionHeight; u++) {
               const type = grid[u][v];
               if (type !== null && !visited[u][v]) {
                 let w = 1;
-                while (u + w < maxU && grid[u + w][v] === type && !visited[u + w][v]) {
+                while (u + w < sectionHeight && grid[u + w][v] === type && !visited[u + w][v]) {
                   w++;
                 }
 
@@ -201,7 +208,7 @@ export class MeshBuilder {
                 }
 
                 const x = C;
-                const y = u;
+                const y = minU + u;
                 const z = v;
                 const block = getBlockById(type);
 
@@ -219,7 +226,7 @@ export class MeshBuilder {
                 }
 
                 const faceIndices = this.addQuad(
-                  v1, v2, v3, v4,
+                  chunk, v1, v2, v3, v4,
                   normal, block, faceType,
                   vertices, normals, colors, vertexIndex
                 );
@@ -234,16 +241,17 @@ export class MeshBuilder {
       else if (nz !== 0) {
         const maxC = chunk.size;
         const maxU = chunk.size;
-        const maxV = chunk.height;
+        const minV = yOffset;
+        const maxV = yOffset + sectionHeight;
 
         for (let C = 0; C < maxC; C++) {
-          const grid = Array(maxU).fill(null).map(() => Array(maxV).fill(null));
+          const grid = Array(maxU).fill(null).map(() => Array(sectionHeight).fill(null));
           let hasFaces = false;
 
           for (let u = 0; u < maxU; u++) {
-            for (let v = 0; v < maxV; v++) {
+            for (let v = 0; v < sectionHeight; v++) {
               const x = u;
-              const y = v;
+              const y = minV + v;
               const z = C;
 
               const blockType = chunk.getBlock(x, y, z);
@@ -262,8 +270,8 @@ export class MeshBuilder {
 
           if (!hasFaces) continue;
 
-          const visited = Array(maxU).fill(null).map(() => Array(maxV).fill(false));
-          for (let v = 0; v < maxV; v++) {
+          const visited = Array(maxU).fill(null).map(() => Array(sectionHeight).fill(false));
+          for (let v = 0; v < sectionHeight; v++) {
             for (let u = 0; u < maxU; u++) {
               const type = grid[u][v];
               if (type !== null && !visited[u][v]) {
@@ -274,7 +282,7 @@ export class MeshBuilder {
 
                 let h = 1;
                 let canExpand = true;
-                while (v + h < maxV) {
+                while (v + h < sectionHeight) {
                   for (let k = 0; k < w; k++) {
                     if (grid[u + k][v + h] !== type || visited[u + k][v + h]) {
                       canExpand = false;
@@ -292,7 +300,7 @@ export class MeshBuilder {
                 }
 
                 const x = u;
-                const y = v;
+                const y = minV + v;
                 const z = C;
                 const block = getBlockById(type);
 
@@ -310,7 +318,7 @@ export class MeshBuilder {
                 }
 
                 const faceIndices = this.addQuad(
-                  v1, v2, v3, v4,
+                  chunk, v1, v2, v3, v4,
                   normal, block, faceType,
                   vertices, normals, colors, vertexIndex
                 );
@@ -325,7 +333,7 @@ export class MeshBuilder {
 
     if (vertices.length === 0) {
       geometry.dispose();
-      return null; // Empty chunk mesh
+      return null; // Empty section mesh
     }
 
     // Set geometry attributes
@@ -349,9 +357,136 @@ export class MeshBuilder {
   }
 
   /**
+   * Build mesh for an entire chunk (delegates to sections for backward compatibility)
+   * @param {Chunk} chunk - The chunk to build a mesh for
+   * @param {THREE.Material} material - The shared chunk material
+   * @returns {THREE.Mesh|null} The generated mesh or null if empty
+   */
+  buildChunkMesh(chunk, material) {
+    for (let i = 0; i < chunk.sections.length; i++) {
+      const mesh = this.buildChunkSectionMesh(chunk, i, material);
+      if (mesh) return mesh;
+    }
+    return null;
+  }
+
+  /**
+   * Get smooth lighting value at vertex by averaging surrounding blocks
+   */
+  getSmoothLight(chunk, vx, vy, vz, normal) {
+    const [nx, ny, nz] = normal;
+    let sumLight = 0;
+    let count = 0;
+
+    // Define the 4 blocks surrounding the vertex corner on the exposed side of the face
+    let blocks = [];
+    if (ny !== 0) {
+      const ey = ny === 1 ? vy : vy - 1;
+      blocks = [
+        [vx - 1, ey, vz - 1],
+        [vx, ey, vz - 1],
+        [vx - 1, ey, vz],
+        [vx, ey, vz]
+      ];
+    } else if (nx !== 0) {
+      const ex = nx === 1 ? vx : vx - 1;
+      blocks = [
+        [ex, vy - 1, vz - 1],
+        [ex, vy, vz - 1],
+        [ex, vy - 1, vz],
+        [ex, vy, vz]
+      ];
+    } else {
+      const ez = nz === 1 ? vz : vz - 1;
+      blocks = [
+        [vx - 1, vy - 1, ez],
+        [vx, vy - 1, ez],
+        [vx - 1, vy, ez],
+        [vx, vy, ez]
+      ];
+    }
+
+    for (const [bx, by, bz] of blocks) {
+      // Check if coordinate is solid
+      const isSolid = chunk.isSolid(bx, by, bz);
+      if (!isSolid) {
+        let lightVal = 15; // default to maximum light
+        if (chunk.chunkManager && chunk.chunkManager.lightingSystem) {
+          const light = chunk.chunkManager.lightingSystem.getLightAt(chunk, bx, by, bz);
+          lightVal = Math.max(light.skylight, light.blocklight);
+        }
+        sumLight += lightVal;
+        count++;
+      }
+    }
+
+    if (count === 0) return 0;
+    return sumLight / count;
+  }
+
+  /**
+   * Calculate ambient occlusion value at a vertex corner based on surrounding block solidity
+   */
+  getVertexAO(chunk, vx, vy, vz, normal, vIdx) {
+    const [nx, ny, nz] = normal;
+    let s1 = 0, s2 = 0, c = 0;
+
+    if (ny === 1) { // Top
+      const dx = vIdx === 0 || vIdx === 3 ? -1 : 1;
+      const dz = vIdx === 0 || vIdx === 1 ? -1 : 1;
+      s1 = chunk.isSolid(vx + dx, vy, vz) ? 1 : 0;
+      s2 = chunk.isSolid(vx, vy, vz + dz) ? 1 : 0;
+      c = chunk.isSolid(vx + dx, vy, vz + dz) ? 1 : 0;
+    } else if (ny === -1) { // Bottom
+      const dxArr = [-1, -1, 1, 1];
+      const dzArr = [-1, 1, 1, -1];
+      const dx = dxArr[vIdx];
+      const dz = dzArr[vIdx];
+      s1 = chunk.isSolid(vx + dx, vy - 1, vz) ? 1 : 0;
+      s2 = chunk.isSolid(vx, vy - 1, vz + dz) ? 1 : 0;
+      c = chunk.isSolid(vx + dx, vy - 1, vz + dz) ? 1 : 0;
+    } else if (nx === 1) { // Right
+      const dyArr = [-1, -1, 1, 1];
+      const dzArr = [-1, 1, 1, -1];
+      const dy = dyArr[vIdx];
+      const dz = dzArr[vIdx];
+      s1 = chunk.isSolid(vx, vy + dy, vz) ? 1 : 0;
+      s2 = chunk.isSolid(vx, vy, vz + dz) ? 1 : 0;
+      c = chunk.isSolid(vx, vy + dy, vz + dz) ? 1 : 0;
+    } else if (nx === -1) { // Left
+      const dyArr = [-1, 1, 1, -1];
+      const dzArr = [-1, -1, 1, 1];
+      const dy = dyArr[vIdx];
+      const dz = dzArr[vIdx];
+      s1 = chunk.isSolid(vx - 1, vy + dy, vz) ? 1 : 0;
+      s2 = chunk.isSolid(vx - 1, vy, vz + dz) ? 1 : 0;
+      c = chunk.isSolid(vx - 1, vy + dy, vz + dz) ? 1 : 0;
+    } else if (nz === 1) { // Front
+      const dxArr = [-1, -1, 1, 1];
+      const dyArr = [-1, 1, 1, -1];
+      const dx = dxArr[vIdx];
+      const dy = dyArr[vIdx];
+      s1 = chunk.isSolid(vx + dx, vy, vz) ? 1 : 0;
+      s2 = chunk.isSolid(vx, vy + dy, vz) ? 1 : 0;
+      c = chunk.isSolid(vx + dx, vy + dy, vz) ? 1 : 0;
+    } else if (nz === -1) { // Back
+      const dxArr = [-1, 1, 1, -1];
+      const dyArr = [-1, -1, 1, 1];
+      const dx = dxArr[vIdx];
+      const dy = dyArr[vIdx];
+      s1 = chunk.isSolid(vx + dx, vy, vz - 1) ? 1 : 0;
+      s2 = chunk.isSolid(vx, vy + dy, vz - 1) ? 1 : 0;
+      c = chunk.isSolid(vx + dx, vy + dy, vz - 1) ? 1 : 0;
+    }
+
+    if (s1 && s2) return 0; // completely occluded
+    return 3 - (s1 + s2 + c); // 0 to 3
+  }
+
+  /**
    * Add a quad with vertex positions and colors to vectors
    */
-  addQuad(v1, v2, v3, v4, normal, block, faceType, vertices, normals, colors, startIndex) {
+  addQuad(chunk, v1, v2, v3, v4, normal, block, faceType, vertices, normals, colors, startIndex) {
     const [nx, ny, nz] = normal;
 
     // Get color based on face type from Block color properties
@@ -371,16 +506,27 @@ export class MeshBuilder {
     const color = this._colorCache.get(colorHex);
 
     // Add 4 vertices of the quad
-    vertices.push(...v1, ...v2, ...v3, ...v4);
+    const quads = [v1, v2, v3, v4];
+    for (let i = 0; i < 4; i++) {
+      vertices.push(...quads[i]);
+    }
 
     // Add normals for 4 vertices
     for (let i = 0; i < 4; i++) {
       normals.push(nx, ny, nz);
     }
 
-    // Add colors for 4 vertices
+    // Add colors for 4 vertices with baked lighting & Ambient Occlusion (AO)
     for (let i = 0; i < 4; i++) {
-      colors.push(color.r, color.g, color.b);
+      const [vx, vy, vz] = quads[i];
+      const smoothLight = this.getSmoothLight(chunk, vx, vy, vz, normal);
+      const lightFactor = Math.max(0.12, smoothLight / 15.0); // Ambient minimum of 0.12
+
+      const aoLevel = this.getVertexAO(chunk, vx, vy, vz, normal, i);
+      const aoFactor = 0.45 + (aoLevel / 3) * 0.55; // Scales from 0.45 to 1.0
+
+      const factor = lightFactor * aoFactor;
+      colors.push(color.r * factor, color.g * factor, color.b * factor);
     }
 
     // Two triangles covering the quad
