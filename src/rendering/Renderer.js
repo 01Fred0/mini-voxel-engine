@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import { MeshBuilder } from './MeshBuilder.js';
+import { WorldConfig, QualityPresets } from '../config.js';
 
 export class Renderer {
   constructor(canvas) {
     this.canvas = canvas;
+    const preset = QualityPresets[WorldConfig.quality] || QualityPresets.MEDIUM;
     
     // Create renderer
     this.renderer = new THREE.WebGLRenderer({ 
@@ -11,15 +13,17 @@ export class Renderer {
       antialias: true,
       alpha: false
     });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, preset.pixelRatio));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setClearColor(0x87CEEB); // Sky blue
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.enabled = preset.shadows;
+    if (preset.shadows) {
+      this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    }
     
     // Create scene
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.Fog(0x87CEEB, 50, 200);
+    this.scene.fog = new THREE.Fog(0x87CEEB, 50, preset.fogFar);
     
     // Create camera
     this.camera = new THREE.PerspectiveCamera(
@@ -51,6 +55,8 @@ export class Renderer {
   }
   
   setupLighting() {
+    const preset = QualityPresets[WorldConfig.quality] || QualityPresets.MEDIUM;
+
     // Ambient light for overall illumination
     const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
     this.scene.add(ambientLight);
@@ -58,17 +64,20 @@ export class Renderer {
     // Directional light (sun)
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
     directionalLight.position.set(50, 100, 50);
-    directionalLight.castShadow = true;
     
-    // Configure shadow map
-    directionalLight.shadow.mapSize.width = 2048;
-    directionalLight.shadow.mapSize.height = 2048;
-    directionalLight.shadow.camera.near = 0.5;
-    directionalLight.shadow.camera.far = 500;
-    directionalLight.shadow.camera.left = -100;
-    directionalLight.shadow.camera.right = 100;
-    directionalLight.shadow.camera.top = 100;
-    directionalLight.shadow.camera.bottom = -100;
+    if (preset.shadows) {
+      directionalLight.castShadow = true;
+
+      // Configure shadow map
+      directionalLight.shadow.mapSize.width = preset.shadowMapSize;
+      directionalLight.shadow.mapSize.height = preset.shadowMapSize;
+      directionalLight.shadow.camera.near = 0.5;
+      directionalLight.shadow.camera.far = 500;
+      directionalLight.shadow.camera.left = -100;
+      directionalLight.shadow.camera.right = 100;
+      directionalLight.shadow.camera.top = 100;
+      directionalLight.shadow.camera.bottom = -100;
+    }
     
     this.scene.add(directionalLight);
     

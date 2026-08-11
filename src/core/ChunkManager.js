@@ -79,6 +79,20 @@ export class ChunkManager {
     // Add to rebuild queue
     this.dirtyRebuildChunks.add(chunk);
 
+    // Invalidate neighbor chunk meshes so they rebuild and hide boundary faces
+    const neighbors = [
+      [chunkX - 1, chunkZ],
+      [chunkX + 1, chunkZ],
+      [chunkX, chunkZ - 1],
+      [chunkX, chunkZ + 1]
+    ];
+    for (const [nx, nz] of neighbors) {
+      const neighbor = this.getChunk(nx, nz);
+      if (neighbor) {
+        neighbor.needsRebuild = true;
+      }
+    }
+
     return chunk;
   }
 

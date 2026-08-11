@@ -33,14 +33,65 @@ function getQueryOrLocalStorageSeed() {
   return randomSeed;
 }
 
+export const QualityPresets = {
+  LOW: {
+    pixelRatio: 1.0,               // Cap DPR to 1.0 to save high-res screens from lagging
+    shadows: false,                // Disable shadows for massive performance boost
+    shadowMapSize: 512,
+    renderDistance: 3,             // Smaller render distance
+    fogFar: 100,
+  },
+  MEDIUM: {
+    pixelRatio: 1.5,
+    shadows: true,
+    shadowMapSize: 1024,
+    renderDistance: 4,
+    fogFar: 150,
+  },
+  HIGH: {
+    pixelRatio: 2.0,
+    shadows: true,
+    shadowMapSize: 2048,
+    renderDistance: 6,
+    fogFar: 250,
+  }
+};
+
+function getQueryOrLocalStorageQuality() {
+  try {
+    if (typeof window !== 'undefined' && window.location) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlQuality = urlParams.get('quality');
+      if (urlQuality && QualityPresets[urlQuality.toUpperCase()]) {
+        return urlQuality.toUpperCase();
+      }
+    }
+
+    if (typeof localStorage !== 'undefined') {
+      const localQuality = localStorage.getItem('graphics_quality');
+      if (localQuality && QualityPresets[localQuality.toUpperCase()]) {
+        return localQuality.toUpperCase();
+      }
+    }
+  } catch (e) {}
+  return 'MEDIUM'; // Default quality
+}
+
 export const WorldConfig = {
   // World Seed
   seed: getQueryOrLocalStorageSeed(),
+
+  // Quality settings (LOW, MEDIUM, HIGH)
+  quality: getQueryOrLocalStorageQuality(),
   
   // Chunk Settings
   chunkSize: 16, // 16x16 blocks
   chunkHeight: 64, // 64 blocks tall
-  renderDistance: 4, // Number of chunks to render around player
+
+  // Render Distance - determined by Quality Preset
+  get renderDistance() {
+    return QualityPresets[this.quality].renderDistance;
+  },
   
   // Terrain Generation
   terrain: {
