@@ -135,8 +135,22 @@ export class Chunk {
 
   // Check if block is solid
   isSolid(x, y, z) {
-    const blockType = this.getBlock(x, y, z);
-    return blockType !== BlockTypes.AIR && blockType !== BlockTypes.WATER;
+    if (y < 0 || y >= this.height) return false;
+    if (x >= 0 && x < this.size && z >= 0 && z < this.size) {
+      const blockType = this.blocks[x][y][z];
+      return blockType !== BlockTypes.AIR && blockType !== BlockTypes.WATER;
+    }
+    if (this.chunkManager) {
+      const neighborX = this.x + Math.floor(x / this.size);
+      const neighborZ = this.z + Math.floor(z / this.size);
+      const neighbor = this.chunkManager.getChunk(neighborX, neighborZ);
+      if (neighbor) {
+        const localX = (x % this.size + this.size) % this.size;
+        const localZ = (z % this.size + this.size) % this.size;
+        return neighbor.isSolid(localX, y, localZ);
+      }
+    }
+    return false;
   }
 
   // Check if block is exposed (has air neighbor)

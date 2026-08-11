@@ -5,6 +5,7 @@ import { Renderer } from './rendering/Renderer.js';
 import { CameraController } from './rendering/CameraController.js';
 import { InputHandler } from './core/InputHandler.js';
 import { VoxelParticleSystem } from './core/VoxelParticleSystem.js';
+import { UIManager } from './core/UIManager.js';
 
 class VoxelEngine {
   constructor() {
@@ -49,11 +50,8 @@ class VoxelEngine {
     this.frameCount = 0;
     this.fpsUpdateTime = 0;
     
-    // Create FPS display
-    this.createFPSDisplay();
-    
-    // Create instructions overlay
-    this.createInstructions();
+    // Initialize UI Manager with active quality setting
+    this.uiManager = new UIManager(this.canvas, WorldConfig.quality);
     
     // Start game loop
     this.isRunning = true;
@@ -63,68 +61,9 @@ class VoxelEngine {
     console.log('World seed:', WorldConfig.seed);
   }
   
-  createFPSDisplay() {
-    this.fpsElement = document.createElement('div');
-    this.fpsElement.style.position = 'fixed';
-    this.fpsElement.style.top = '10px';
-    this.fpsElement.style.left = '10px';
-    this.fpsElement.style.color = 'white';
-    this.fpsElement.style.fontFamily = 'monospace';
-    this.fpsElement.style.fontSize = '14px';
-    this.fpsElement.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-    this.fpsElement.style.padding = '5px 10px';
-    this.fpsElement.style.borderRadius = '3px';
-    this.fpsElement.style.zIndex = '1000';
-    this.fpsElement.textContent = 'FPS: 0';
-    document.body.appendChild(this.fpsElement);
-  }
-  
-  createInstructions() {
-    const instructions = document.createElement('div');
-    instructions.style.position = 'fixed';
-    instructions.style.top = '50%';
-    instructions.style.left = '50%';
-    instructions.style.transform = 'translate(-50%, -50%)';
-    instructions.style.color = 'white';
-    instructions.style.fontFamily = 'Arial, sans-serif';
-    instructions.style.fontSize = '18px';
-    instructions.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-    instructions.style.padding = '20px';
-    instructions.style.borderRadius = '10px';
-    instructions.style.textAlign = 'center';
-    instructions.style.zIndex = '999';
-    instructions.innerHTML = `
-      <h2>Mini Voxel Engine</h2>
-      <p><strong>Click to start</strong></p>
-      <br>
-      <p>WASD - Move</p>
-      <p>Mouse - Look around</p>
-      <p>Space - Move up</p>
-      <p>Control - Move down</p>
-      <p>Shift - Sprint</p>
-      <p>ESC - Release mouse</p>
-    `;
-    document.body.appendChild(instructions);
-    
-    // Remove instructions when pointer is locked
-    const removeInstructions = () => {
-      if (document.pointerLockElement === this.canvas) {
-        instructions.remove();
-        document.removeEventListener('pointerlockchange', removeInstructions);
-      }
-    };
-    document.addEventListener('pointerlockchange', removeInstructions);
-  }
-  
   updateChunks() {
     const cameraPos = this.cameraController.getPosition();
     const result = this.chunkManager.updateChunks(cameraPos.x, cameraPos.z);
-    
-    // Load meshes for newly loaded chunks immediately
-    for (const chunk of result.loaded) {
-      this.renderer.updateChunkMesh(chunk);
-      chunk.needsRebuild = false; // Prevent double-rebuilding in updatePhysics
-    }
     
     // Unload meshes for distant chunks
     for (const chunk of result.unloaded) {
@@ -135,12 +74,30 @@ class VoxelEngine {
   updatePhysics(deltaTime) {
     // Run the global physics update
     this.physics.update(deltaTime);
+  }
 
-    // Rebuild meshes only for chunks that actually need it
+  updateMeshes() {
     const needingRebuild = this.chunkManager.getChunksNeedingRebuild();
+    if (needingRebuild.length === 0) return;
+
+    const cameraPos = this.cameraController.getPosition();
+    const playerChunk = this.chunkManager.worldToChunk(cameraPos.x, cameraPos.z);
+
+    // Sort by distance to camera so closest chunks are rebuilt first
+    needingRebuild.sort((a, b) => {
+      const distA = (a.x - playerChunk.x) ** 2 + (a.z - playerChunk.z) ** 2;
+      const distB = (b.x - playerChunk.x) ** 2 + (b.z - playerChunk.z) ** 2;
+      return distA - distB;
+    });
+
+    // Budget: rebuild at most 4 chunks per frame to avoid stuttering/hitching
+    const limit = 4;
+    let count = 0;
     for (const chunk of needingRebuild) {
+      if (count >= limit) break;
       this.renderer.updateChunkMesh(chunk);
       chunk.needsRebuild = false;
+      count++;
     }
   }
   
@@ -150,7 +107,7 @@ class VoxelEngine {
     
     if (this.fpsUpdateTime >= 0.5) { // Update every 0.5 seconds
       const fps = Math.round(this.frameCount / this.fpsUpdateTime);
-      this.fpsElement.textContent = `FPS: ${fps} | Chunks: ${this.chunkManager.chunks.size}`;
+      this.uiManager.updateFPS(fps, this.chunkManager.chunks.size);
       this.frameCount = 0;
       this.fpsUpdateTime = 0;
     }
@@ -172,6 +129,9 @@ class VoxelEngine {
     
     // Update physics
     this.updatePhysics(deltaTime);
+
+    // Update meshes (budget-controlled mesh rebuilding)
+    this.updateMeshes();
     
     // Update FPS display
     this.updateFPS(deltaTime);
@@ -189,9 +149,7 @@ class VoxelEngine {
     this.inputHandler.dispose();
     this.renderer.dispose();
     this.chunkManager.dispose();
-    if (this.fpsElement) {
-      this.fpsElement.remove();
-    }
+    this.uiManager.dispose();
   }
 }
 
