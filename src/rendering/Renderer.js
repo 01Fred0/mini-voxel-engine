@@ -88,41 +88,29 @@ export class Renderer {
     if (this.chunkMeshes.has(chunkKey)) {
       const oldMesh = this.chunkMeshes.get(chunkKey);
       this.scene.remove(oldMesh);
-      oldMesh.geometry.dispose();
-      oldMesh.material.dispose();
+      if (oldMesh.geometry) oldMesh.geometry.dispose();
+      if (oldMesh.material) {
+        if (Array.isArray(oldMesh.material)) {
+          oldMesh.material.forEach(m => m.dispose());
+        } else {
+          oldMesh.material.dispose();
+        }
+      }
       this.chunkMeshes.delete(chunkKey);
     }
     
-    // Build new mesh
-    const geometry = this.meshBuilder.buildChunkMesh(chunk);
+    // Build new mesh using MeshBuilder
+    const mesh = this.meshBuilder.buildChunkMesh(chunk);
     
-    // Only create mesh if there's geometry
-    if (geometry.attributes.position.count === 0) {
-      geometry.dispose();
+    if (!mesh) {
+      chunk.mesh = null;
       return;
     }
     
-    // Create material with vertex colors
-    const material = new THREE.MeshLambertMaterial({
-      vertexColors: true,
-      flatShading: true
-    });
-    
-    // Create mesh
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    
-    // Position mesh in world
-    mesh.position.set(
-      chunk.x * chunk.size,
-      0,
-      chunk.z * chunk.size
-    );
-    
-    // Add to scene and track
+    // Add to scene, track, and set reference on chunk
     this.scene.add(mesh);
     this.chunkMeshes.set(chunkKey, mesh);
+    chunk.mesh = mesh;
   }
   
   // Remove chunk mesh
@@ -132,8 +120,14 @@ export class Renderer {
     if (this.chunkMeshes.has(chunkKey)) {
       const mesh = this.chunkMeshes.get(chunkKey);
       this.scene.remove(mesh);
-      mesh.geometry.dispose();
-      mesh.material.dispose();
+      if (mesh.geometry) mesh.geometry.dispose();
+      if (mesh.material) {
+        if (Array.isArray(mesh.material)) {
+          mesh.material.forEach(m => m.dispose());
+        } else {
+          mesh.material.dispose();
+        }
+      }
       this.chunkMeshes.delete(chunkKey);
     }
   }
@@ -167,8 +161,14 @@ export class Renderer {
     // Dispose all chunk meshes
     this.chunkMeshes.forEach((mesh) => {
       this.scene.remove(mesh);
-      mesh.geometry.dispose();
-      mesh.material.dispose();
+      if (mesh.geometry) mesh.geometry.dispose();
+      if (mesh.material) {
+        if (Array.isArray(mesh.material)) {
+          mesh.material.forEach(m => m.dispose());
+        } else {
+          mesh.material.dispose();
+        }
+      }
     });
     this.chunkMeshes.clear();
     

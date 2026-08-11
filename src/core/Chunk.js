@@ -15,12 +15,45 @@ export class Chunk {
     this.blocks = this.createBlockArray();
     
     // Physics state tracking
-    this.needsPhysicsUpdate = false;
+    this._needsPhysicsUpdate = false;
     this.dirtyBlocks = new Set();  // Blocks that changed
     
     // Mesh state
     this.mesh = null;
-    this.needsRebuild = true;
+    this._needsRebuild = true;
+
+    // Link to ChunkManager (will be set when added/loaded)
+    this.chunkManager = null;
+  }
+
+  get needsRebuild() {
+    return this._needsRebuild;
+  }
+
+  set needsRebuild(val) {
+    this._needsRebuild = val;
+    if (this.chunkManager) {
+      if (val) {
+        this.chunkManager.dirtyRebuildChunks.add(this);
+      } else {
+        this.chunkManager.dirtyRebuildChunks.delete(this);
+      }
+    }
+  }
+
+  get needsPhysicsUpdate() {
+    return this._needsPhysicsUpdate;
+  }
+
+  set needsPhysicsUpdate(val) {
+    this._needsPhysicsUpdate = val;
+    if (this.chunkManager) {
+      if (val) {
+        this.chunkManager.dirtyPhysicsChunks.add(this);
+      } else {
+        this.chunkManager.dirtyPhysicsChunks.delete(this);
+      }
+    }
   }
 
   // Create empty block array

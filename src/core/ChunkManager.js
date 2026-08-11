@@ -14,6 +14,10 @@ export class ChunkManager {
     
     this.loadQueue = [];
     this.lastPlayerChunk = { x: null, z: null };
+
+    // Sets to track dirty chunks (avoids garbage allocation inside game loop)
+    this.dirtyPhysicsChunks = new Set();
+    this.dirtyRebuildChunks = new Set();
   }
 
   // Get chunk key for storage
@@ -66,9 +70,14 @@ export class ChunkManager {
     
     // Generate new chunk
     const chunk = this.generator.generateChunk(chunkX, chunkZ);
+    chunk.chunkManager = this;
+
     const key = this.getChunkKey(chunkX, chunkZ);
     this.chunks.set(key, chunk);
     
+    // Add to rebuild queue
+    this.dirtyRebuildChunks.add(chunk);
+
     return chunk;
   }
 
@@ -78,6 +87,8 @@ export class ChunkManager {
     const chunk = this.chunks.get(key);
     
     if (chunk) {
+      this.dirtyRebuildChunks.delete(chunk);
+      this.dirtyPhysicsChunks.delete(chunk);
       chunk.dispose();  // Clean up mesh resources
       this.chunks.delete(key);
       return true;
@@ -86,43 +97,67 @@ export class ChunkManager {
     return false;
   }
 
-  // Update loaded chunks based on player position
+  // Update loaded chunks based on player position (priority-based load budget)
   updateChunks(playerX, playerZ) {
     const playerChunk = this.worldToChunk(playerX, playerZ);
-    
-    // Only update if player moved to a new chunk
-    if (playerChunk.x === this.lastPlayerChunk.x && 
-        playerChunk.z === this.lastPlayerChunk.z) {
-      return { loaded: [], unloaded: [] };
-    }
-    
-    this.lastPlayerChunk = playerChunk;
-    
-    // Determine which chunks should be loaded
     const requiredChunks = new Set();
     const loaded = [];
     const unloaded = [];
     
-    for (let x = -this.renderDistance; x <= this.renderDistance; x++) {
-      for (let z = -this.renderDistance; z <= this.renderDistance; z++) {
+    const maxDistance = this.renderDistance;
+
+    // Determine which chunks should be loaded (circular distance check)
+    for (let x = -maxDistance; x <= maxDistance; x++) {
+      for (let z = -maxDistance; z <= maxDistance; z++) {
         const chunkX = playerChunk.x + x;
         const chunkZ = playerChunk.z + z;
-        const key = this.getChunkKey(chunkX, chunkZ);
-        requiredChunks.add(key);
         
-        // Load chunk if not already loaded
-        if (!this.hasChunk(chunkX, chunkZ)) {
-          const chunk = this.loadChunk(chunkX, chunkZ);
-          loaded.push(chunk);
+        const distance = Math.sqrt(x * x + z * z);
+        if (distance <= maxDistance) {
+          const key = this.getChunkKey(chunkX, chunkZ);
+          requiredChunks.add(key);
         }
       }
     }
     
-    // Unload chunks that are too far
-    for (const [key, chunk] of this.chunks.entries()) {
-      if (!requiredChunks.has(key)) {
-        this.unloadChunk(chunk.x, chunk.z);
-        unloaded.push(chunk);
+    // If player moved to a new chunk, unload distant chunks and rebuild priority queue
+    if (playerChunk.x !== this.lastPlayerChunk.x ||
+        playerChunk.z !== this.lastPlayerChunk.z) {
+
+      this.lastPlayerChunk = playerChunk;
+
+      // Unload chunks that are too far
+      for (const [key, chunk] of this.chunks.entries()) {
+        if (!requiredChunks.has(key)) {
+          this.unloadChunk(chunk.x, chunk.z);
+          unloaded.push(chunk);
+        }
+      }
+
+      // Rebuild the load queue with pending chunks
+      this.loadQueue = [];
+      for (const key of requiredChunks) {
+        const [cx, cz] = key.split(',').map(Number);
+        if (!this.hasChunk(cx, cz)) {
+          const distance = Math.sqrt((cx - playerChunk.x) ** 2 + (cz - playerChunk.z) ** 2);
+          this.loadQueue.push({ x: cx, z: cz, distance });
+        }
+      }
+
+      // Sort closest first
+      this.loadQueue.sort((a, b) => a.distance - b.distance);
+    }
+
+    // Load at most 2 chunks from queue per frame
+    const limit = 2;
+    let count = 0;
+    while (this.loadQueue.length > 0 && count < limit) {
+      const next = this.loadQueue.shift();
+      const key = this.getChunkKey(next.x, next.z);
+      if (requiredChunks.has(key) && !this.hasChunk(next.x, next.z)) {
+        const chunk = this.loadChunk(next.x, next.z);
+        loaded.push(chunk);
+        count++;
       }
     }
     
@@ -154,12 +189,12 @@ export class ChunkManager {
 
   // Get chunks that need physics updates
   getChunksNeedingPhysics() {
-    return this.getAllChunks().filter(chunk => chunk.needsPhysicsUpdate);
+    return Array.from(this.dirtyPhysicsChunks);
   }
 
   // Get chunks that need mesh rebuild
   getChunksNeedingRebuild() {
-    return this.getAllChunks().filter(chunk => chunk.needsRebuild);
+    return Array.from(this.dirtyRebuildChunks);
   }
 
   // Dispose all chunks
@@ -168,5 +203,8 @@ export class ChunkManager {
       chunk.dispose();
     }
     this.chunks.clear();
+    this.dirtyPhysicsChunks.clear();
+    this.dirtyRebuildChunks.clear();
+    this.loadQueue = [];
   }
 }

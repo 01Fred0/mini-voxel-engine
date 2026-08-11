@@ -21,7 +21,7 @@ export class WorldGenerator {
     // Initialize biome and ore generators
     this.biomeGenerator = new BiomeGenerator(this.seed);
     this.oreGenerator = new OreGenerator(this.seed);
-        this.terrainPolisher = new TerrainPolisher(this.seed);
+    this.terrainPolisher = new TerrainPolisher(this.seed);
     
     // Config references
     this.terrainConfig = WorldConfig.terrain;
@@ -44,8 +44,14 @@ export class WorldGenerator {
         const worldX = chunkX * chunk.size + x;
         const worldZ = chunkZ * chunk.size + z;
         
+        // Generate temperature and humidity using noise
+        const tempNoise = this.noise.noise2D(worldX * 0.0005, worldZ * 0.0005);
+        const humNoise = this.noise.noise2D(worldX * 0.0005 + 1000, worldZ * 0.0005 + 1000);
+        const temperature = (tempNoise + 1.0) / 2.0;
+        const humidity = (humNoise + 1.0) / 2.0;
+
         // Get biome for this column
-        const biome = this.biomeGenerator.getBiome(worldX, worldZ);
+        const biome = this.biomeGenerator.getBiome(worldX, worldZ, temperature, humidity);
         
         // Generate height at this position
         const height = this.getTerrainHeight(worldX, worldZ, biome);
@@ -61,7 +67,7 @@ export class WorldGenerator {
     // Generate ores after base terrain
     this.oreGenerator.generateOres(chunk);
 
-        // Apply terrain polishing for enhanced terrain quality
+    // Apply terrain polishing for enhanced terrain quality
     this.terrainPolisher.polishChunk(chunk, this);
     
     chunk.needsPhysicsUpdate = false; // Initial generation doesn't need physics
@@ -107,6 +113,13 @@ export class WorldGenerator {
    * @returns {number} Block type ID
    */
   getBlockType(worldX, worldY, worldZ, surfaceHeight, biome) {
+    const waterLevel = this.terrainConfig.baseHeight;
+
+    // Check for water fill (if column is below water level but above surface)
+    if (worldY > surfaceHeight && worldY <= waterLevel) {
+      return BlockTypes.WATER;
+    }
+
     // Air above surface
     if (worldY > surfaceHeight) {
       return BlockTypes.AIR;
@@ -115,12 +128,6 @@ export class WorldGenerator {
     // Check for caves
     if (this.isCave(worldX, worldY, worldZ)) {
       return BlockTypes.AIR;
-    }
-    
-    // Water level
-    const waterLevel = this.terrainConfig.baseHeight;
-    if (worldY <= waterLevel - 5 && worldY > surfaceHeight) {
-      return BlockTypes.WATER;
     }
     
     // Surface layer - use biome surface block

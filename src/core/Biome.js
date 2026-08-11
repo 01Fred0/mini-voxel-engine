@@ -4,6 +4,7 @@
  */
 
 import { Blocks } from './Block.js';
+import { SimplexNoise } from '../noise/SimplexNoise.js';
 
 /**
  * Biome class - Represents a biome type
@@ -24,6 +25,10 @@ export class Biome {
     this.stoneBlock = properties.stoneBlock || Blocks.STONE;
     this.beachBlock = properties.beachBlock || Blocks.SAND;
     
+    // Compatibility aliases for WorldGenerator
+    this.surfaceBlock = this.topBlock.id;
+    this.subsurfaceBlock = this.fillBlock.id;
+
     // Temperature and humidity
     this.temperature = properties.temperature || 0.5; // 0-1
     this.humidity = properties.humidity || 0.5; // 0-1
@@ -161,6 +166,7 @@ export const Biomes = {
 export class BiomeGenerator {
   constructor(seed = 0) {
     this.seed = seed;
+    this.noise = new SimplexNoise(seed + 2000);
   }
   
   /**
@@ -168,6 +174,13 @@ export class BiomeGenerator {
    * Uses temperature and humidity to determine biome
    */
   getBiome(x, z, temperature, humidity) {
+    if (temperature === undefined || humidity === undefined) {
+      const tempNoise = this.noise.noise2D(x * 0.0005, z * 0.0005);
+      const humNoise = this.noise.noise2D(x * 0.0005 + 1000, z * 0.0005 + 1000);
+      temperature = (tempNoise + 1.0) / 2.0;
+      humidity = (humNoise + 1.0) / 2.0;
+    }
+
     // Determine biome based on temperature and humidity
     if (humidity > 0.8) {
       if (temperature < 0.2) return Biomes.TAIGA;

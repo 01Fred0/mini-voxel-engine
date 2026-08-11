@@ -147,6 +147,11 @@ export class SimplexNoise {
   noise2D(x, y) {
     return this.noise3D(x, y, 0);
   }
+
+  // Alias for backward compatibility
+  noise(x, y) {
+    return this.noise2D(x, y);
+  }
   
   // Fractal Brownian Motion (multiple octaves)
   fbm3D(x, y, z, octaves = 4, persistence = 0.5, lacunarity = 2.0) {
@@ -173,6 +178,11 @@ export class SimplexNoise {
   // 2D FBM
   fbm2D(x, y, octaves = 4, persistence = 0.5, lacunarity = 2.0) {
     return this.fbm3D(x, y, 0, octaves, persistence, lacunarity);
+  }
+
+  // Alias for backward compatibility
+  fbm(x, y, z, octaves = 4, persistence = 0.5, lacunarity = 2.0) {
+    return this.fbm3D(x, y, z, octaves, persistence, lacunarity);
   }
   
   // Ridge noise (inverted absolute value)
