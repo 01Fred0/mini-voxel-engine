@@ -1,5 +1,4 @@
 import { WorldConfig, BlockTypes, getBlockProperties } from '../config.js';
-import { VoxelParticleSystem } from './VoxelParticleSystem.js';
 
 /**
  * Physics Engine - Handles voxel physics (Rust-like mechanics)
@@ -14,6 +13,7 @@ export class Physics {
     this.gravity = WorldConfig.physics.gravity;
     this.structuralIntegrity = WorldConfig.physics.structuralIntegrity;
     this.supportDistance = WorldConfig.physics.supportDistance;
+    this.maxChecksPerFrame = WorldConfig.physics.maxChecksPerFrame || 128;
     
     // Initialize particle system for micro-voxel destruction
     this.particleSystem = null; // Will be set by main engine with scene
@@ -41,7 +41,7 @@ export class Physics {
     
     // Update particle system
     if (this.particleSystem) {
-      this.particleSystem.update(deltaTime);
+      this.particleSystem.update(deltaTime, -this.gravity);
     }
     
     // Check structural integrity for pending updates
@@ -49,9 +49,15 @@ export class Physics {
     this.pendingUpdates = this.tempUpdates;
     this.tempUpdates = temp;
     
+    let processed = 0;
     for (const posKey of this.tempUpdates) {
+      if (processed >= this.maxChecksPerFrame) {
+        this.pendingUpdates.add(posKey);
+        continue;
+      }
       const [x, y, z] = posKey.split(',').map(Number);
       this.checkBlockPhysics(x, y, z);
+      processed++;
     }
 
     this.tempUpdates.clear();
@@ -144,6 +150,7 @@ export class Physics {
         [cx - 1, cy, cz],
         [cx + 1, cy, cz],
         [cx, cy - 1, cz],
+        [cx, cy + 1, cz],
         [cx, cy, cz - 1],
         [cx, cy, cz + 1]
       ];
@@ -200,7 +207,7 @@ export class Physics {
     
     for (const [key, block] of this.fallingBlocks.entries()) {
       // Apply gravity
-      block.velocity += this.gravity * deltaTime;
+      block.velocity -= this.gravity * deltaTime;
       block.velocity = Math.max(block.velocity, WorldConfig.physics.terminalVelocity);
       
       block.posY += block.velocity * deltaTime;

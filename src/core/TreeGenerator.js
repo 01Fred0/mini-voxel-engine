@@ -192,7 +192,7 @@ export class TreeGenerator {
     const currentBlock = chunk.getBlock(x, y, z);
     if (currentBlock !== BlockTypes.AIR && currentBlock !== BlockTypes.LEAVES) return;
     
-    chunk.setBlock(x, y, z, blockType);
+    chunk.fillBlock(x, y, z, blockType);
   }
 
   /**

@@ -133,7 +133,7 @@ export class TerrainPolisher {
     
     // Apply smoothing if significant difference
     if (maxCount >= 8) {
-      chunk.setBlock(x, y, z, mostCommon);
+      chunk.fillBlock(x, y, z, mostCommon);
     }
   }
 
@@ -156,8 +156,8 @@ export class TerrainPolisher {
         
         if (surfaceY <= 0) continue;
         
-        const worldX = chunk.chunkX * chunk.size + x;
-        const worldZ = chunk.chunkZ * chunk.size + z;
+        const worldX = chunk.x * chunk.size + x;
+        const worldZ = chunk.z * chunk.size + z;
         
         // Use noise to determine erosion amount
         const erosionValue = this.erosionNoise.noise(worldX * 0.05, worldZ * 0.05);
@@ -166,16 +166,16 @@ export class TerrainPolisher {
           // Strong erosion - remove top blocks
           const erosionDepth = Math.floor((erosionValue - 0.6) * 3 * erosionStrength);
           for (let i = 0; i < erosionDepth && surfaceY - i > 0; i++) {
-            chunk.setBlock(x, surfaceY - i, z, BlockTypes.AIR);
+            chunk.fillBlock(x, surfaceY - i, z, BlockTypes.AIR);
           }
         } else if (erosionValue < -0.4) {
           // Deposition - add sediment
           if (chunk.getBlock(x, surfaceY + 1, z) === BlockTypes.AIR) {
             const surfaceBlock = chunk.getBlock(x, surfaceY, z);
             if (surfaceBlock === BlockTypes.GRASS) {
-              chunk.setBlock(x, surfaceY + 1, z, BlockTypes.DIRT);
+              chunk.fillBlock(x, surfaceY + 1, z, BlockTypes.DIRT);
             } else if (surfaceBlock === BlockTypes.STONE) {
-              chunk.setBlock(x, surfaceY + 1, z, BlockTypes.STONE);
+              chunk.fillBlock(x, surfaceY + 1, z, BlockTypes.STONE);
             }
           }
         }
@@ -189,8 +189,8 @@ export class TerrainPolisher {
   addSurfaceDetails(chunk, worldGen) {
     for (let x = 0; x < chunk.size; x++) {
       for (let z = 0; z < chunk.size; z++) {
-        const worldX = chunk.chunkX * chunk.size + x;
-        const worldZ = chunk.chunkZ * chunk.size + z;
+        const worldX = chunk.x * chunk.size + x;
+        const worldZ = chunk.z * chunk.size + z;
         
         // Find surface
         let surfaceY = -1;
@@ -207,7 +207,7 @@ export class TerrainPolisher {
         // Add occasional stone patches on grass
         const detailNoise = this.featureNoise.noise(worldX * 0.2, worldZ * 0.2);
         if (detailNoise > 0.85 && chunk.getBlock(x, surfaceY, z) === BlockTypes.GRASS) {
-          chunk.setBlock(x, surfaceY, z, BlockTypes.STONE);
+          chunk.fillBlock(x, surfaceY, z, BlockTypes.STONE);
         }
       }
     }
@@ -219,8 +219,8 @@ export class TerrainPolisher {
   placeNaturalFeatures(chunk, worldGen) {
     for (let x = 2; x < chunk.size - 2; x++) {
       for (let z = 2; z < chunk.size - 2; z++) {
-        const worldX = chunk.chunkX * chunk.size + x;
-        const worldZ = chunk.chunkZ * chunk.size + z;
+        const worldX = chunk.x * chunk.size + x;
+        const worldZ = chunk.z * chunk.size + z;
         
         // Find surface
         let surfaceY = -1;
@@ -259,7 +259,7 @@ export class TerrainPolisher {
           const nx = x + dx, ny = y + dy, nz = z + dz;
           if (nx >= 0 && nx < chunk.size && ny >= 0 && ny < chunk.height && nz >= 0 && nz < chunk.size) {
             if (chunk.getBlock(nx, ny, nz) === BlockTypes.AIR) {
-              chunk.setBlock(nx, ny, nz, BlockTypes.STONE);
+              chunk.fillBlock(nx, ny, nz, BlockTypes.STONE);
             }
           }
         }
@@ -273,10 +273,10 @@ export class TerrainPolisher {
   placeRockPile(chunk, x, y, z) {
     if (x >= 0 && x < chunk.size && y >= 0 && y < chunk.height && z >= 0 && z < chunk.size) {
       if (chunk.getBlock(x, y, z) === BlockTypes.AIR) {
-        chunk.setBlock(x, y, z, BlockTypes.STONE);
+        chunk.fillBlock(x, y, z, BlockTypes.STONE);
         // Occasionally add a second block
         if (Math.random() > 0.5 && y + 1 < chunk.height) {
-          chunk.setBlock(x, y + 1, z, BlockTypes.STONE);
+          chunk.fillBlock(x, y + 1, z, BlockTypes.STONE);
         }
       }
     }
@@ -300,7 +300,7 @@ export class TerrainPolisher {
             
             // Check if block is floating (no support below within 3 blocks)
             if (this.isFloating(chunk, x, y, z)) {
-              chunk.setBlock(x, y, z, BlockTypes.AIR);
+              chunk.fillBlock(x, y, z, BlockTypes.AIR);
             }
           }
         }

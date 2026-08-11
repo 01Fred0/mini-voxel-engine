@@ -56,19 +56,25 @@ export class Chunk {
     }
   }
 
+  index(x, y, z) {
+    return x * this.height * this.size + y * this.size + z;
+  }
+
+  packLocal(x, y, z) {
+    return x | (y << 8) | (z << 16);
+  }
+
+  unpackLocal(v) {
+    return {
+      x: v & 0xff,
+      y: (v >> 8) & 0xff,
+      z: (v >> 16) & 0xff
+    };
+  }
+
   // Create empty block array
   createBlockArray() {
-    const blocks = [];
-    for (let x = 0; x < this.size; x++) {
-      blocks[x] = [];
-      for (let y = 0; y < this.height; y++) {
-        blocks[x][y] = [];
-        for (let z = 0; z < this.size; z++) {
-          blocks[x][y][z] = BlockTypes.AIR;
-        }
-      }
-    }
-    return blocks;
+    return new Uint8Array(this.size * this.height * this.size);
   }
 
   // Get block at local coordinates
@@ -76,7 +82,7 @@ export class Chunk {
     if (!this.isValidPosition(x, y, z)) {
       return BlockTypes.AIR;
     }
-    return this.blocks[x][y][z];
+    return this.blocks[this.index(x, y, z)];
   }
 
   // Set block at local coordinates
@@ -85,15 +91,21 @@ export class Chunk {
       return false;
     }
     
-    const oldBlock = this.blocks[x][y][z];
+    const idx = this.index(x, y, z);
+    const oldBlock = this.blocks[idx];
     if (oldBlock === blockType) {
       return false;
     }
     
-    this.blocks[x][y][z] = blockType;
-    this.dirtyBlocks.add(`${x},${y},${z}`);
+    this.blocks[idx] = blockType;
+    this.dirtyBlocks.add(this.packLocal(x, y, z));
     this.needsPhysicsUpdate = true;
     this.needsRebuild = true;
+
+    // Update lighting on block change
+    if (this.chunkManager && this.chunkManager.lightingSystem) {
+      this.chunkManager.lightingSystem.onBlockChange(this, x, y, z, oldBlock, blockType);
+    }
 
     // Set neighbor chunks as needing rebuild if edge block is modified
     if (this.chunkManager) {
@@ -117,6 +129,15 @@ export class Chunk {
     return true;
   }
 
+  // Set block at local coordinates during world generation (bypassing dirty/physics tracking)
+  fillBlock(x, y, z, blockType) {
+    if (!this.isValidPosition(x, y, z)) {
+      return false;
+    }
+    this.blocks[this.index(x, y, z)] = blockType;
+    return true;
+  }
+
   // Check if position is within chunk bounds
   isValidPosition(x, y, z) {
     return x >= 0 && x < this.size &&
@@ -137,7 +158,7 @@ export class Chunk {
   isSolid(x, y, z) {
     if (y < 0 || y >= this.height) return false;
     if (x >= 0 && x < this.size && z >= 0 && z < this.size) {
-      const blockType = this.blocks[x][y][z];
+      const blockType = this.blocks[this.index(x, y, z)];
       return blockType !== BlockTypes.AIR && blockType !== BlockTypes.WATER;
     }
     if (this.chunkManager) {
@@ -178,8 +199,8 @@ export class Chunk {
   // Get blocks that need physics updates
   getDirtyBlocks() {
     return Array.from(this.dirtyBlocks).map(key => {
-      const [x, y, z] = key.split(',').map(Number);
-      return { x, y, z, type: this.blocks[x][y][z] };
+      const { x, y, z } = this.unpackLocal(key);
+      return { x, y, z, type: this.blocks[this.index(x, y, z)] };
     });
   }
 
@@ -192,13 +213,7 @@ export class Chunk {
   // Clone chunk data
   clone() {
     const newChunk = new Chunk(this.x, this.z);
-    for (let x = 0; x < this.size; x++) {
-      for (let y = 0; y < this.height; y++) {
-        for (let z = 0; z < this.size; z++) {
-          newChunk.blocks[x][y][z] = this.blocks[x][y][z];
-        }
-      }
-    }
+    newChunk.blocks.set(this.blocks);
     return newChunk;
   }
 

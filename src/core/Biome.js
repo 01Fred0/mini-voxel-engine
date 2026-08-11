@@ -5,6 +5,7 @@
 
 import { Blocks } from './Block.js';
 import { SimplexNoise } from '../noise/SimplexNoise.js';
+import { WorldConfig } from '../config.js';
 
 /**
  * Biome class - Represents a biome type
@@ -16,6 +17,7 @@ export class Biome {
     
     // Terrain properties
     this.baseHeight = properties.baseHeight || 64;
+    this.heightOffset = this.baseHeight - 64;
     this.heightVariation = properties.heightVariation || 16;
     this.terrainScale = properties.terrainScale || 0.01;
     
@@ -175,8 +177,8 @@ export class BiomeGenerator {
    */
   getBiome(x, z, temperature, humidity) {
     if (temperature === undefined || humidity === undefined) {
-      const tempNoise = this.noise.noise2D(x * 0.0005, z * 0.0005);
-      const humNoise = this.noise.noise2D(x * 0.0005 + 1000, z * 0.0005 + 1000);
+      const tempNoise = this.noise.noise2D(x * WorldConfig.terrain.biomeNoiseScale, z * WorldConfig.terrain.biomeNoiseScale);
+      const humNoise = this.noise.noise2D(x * WorldConfig.terrain.biomeNoiseScale + WorldConfig.terrain.biomeHumidityOffset, z * WorldConfig.terrain.biomeNoiseScale + WorldConfig.terrain.biomeHumidityOffset);
       temperature = (tempNoise + 1.0) / 2.0;
       humidity = (humNoise + 1.0) / 2.0;
     }

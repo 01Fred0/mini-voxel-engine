@@ -36,30 +36,38 @@ export class WorldGenerator {
    */
   generateChunk(chunkX, chunkZ) {
     const chunk = new Chunk(chunkX, chunkZ);
+    const size = chunk.size;
+    const cache = new Array(size * size);
     
-    // Fill chunk with blocks
-    for (let x = 0; x < chunk.size; x++) {
-      for (let z = 0; z < chunk.size; z++) {
-        // World coordinates
-        const worldX = chunkX * chunk.size + x;
-        const worldZ = chunkZ * chunk.size + z;
+    // Precompute per-column biome and height inputs to avoid redundant noise sampling
+    for (let x = 0; x < size; x++) {
+      for (let z = 0; z < size; z++) {
+        const worldX = chunkX * size + x;
+        const worldZ = chunkZ * size + z;
         
-        // Generate temperature and humidity using noise
-        const tempNoise = this.noise.noise2D(worldX * 0.0005, worldZ * 0.0005);
-        const humNoise = this.noise.noise2D(worldX * 0.0005 + 1000, worldZ * 0.0005 + 1000);
+        const tempNoise = this.noise.noise2D(worldX * WorldConfig.terrain.biomeNoiseScale, worldZ * WorldConfig.terrain.biomeNoiseScale);
+        const humNoise = this.noise.noise2D(worldX * WorldConfig.terrain.biomeNoiseScale + WorldConfig.terrain.biomeHumidityOffset, worldZ * WorldConfig.terrain.biomeNoiseScale + WorldConfig.terrain.biomeHumidityOffset);
         const temperature = (tempNoise + 1.0) / 2.0;
         const humidity = (humNoise + 1.0) / 2.0;
 
-        // Get biome for this column
         const biome = this.biomeGenerator.getBiome(worldX, worldZ, temperature, humidity);
-        
-        // Generate height at this position
         const height = this.getTerrainHeight(worldX, worldZ, biome);
         
+        cache[x * size + z] = { biome, height };
+      }
+    }
+
+    // Fill chunk with blocks
+    for (let x = 0; x < size; x++) {
+      for (let z = 0; z < size; z++) {
+        const worldX = chunkX * size + x;
+        const worldZ = chunkZ * size + z;
+        const cached = cache[x * size + z];
+
         // Fill column
         for (let y = 0; y < chunk.height; y++) {
-          let blockType = this.getBlockType(worldX, y, worldZ, height, biome);
-          chunk.setBlock(x, y, z, blockType);
+          let blockType = this.getBlockType(worldX, y, worldZ, cached.height, cached.biome);
+          chunk.fillBlock(x, y, z, blockType);
         }
       }
     }
